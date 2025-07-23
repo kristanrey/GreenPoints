@@ -1,25 +1,63 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/react';
-import ExploreContainer from '../components/ExploreContainer';
-import './Home.css';
 
-const Home: React.FC = () => {
-  return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Blank</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent fullscreen>
-        <IonHeader collapse="condense">
-          <IonToolbar>
-            <IonTitle size="large">Blank</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <ExploreContainer />
-      </IonContent>
-    </IonPage>
-  );
-};
+import { 
+  IonButton,
+    IonButtons,
+      IonContent, 
+      IonHeader, 
+      IonIcon, 
+      IonLabel, 
+      IonMenuButton, 
+      IonPage, 
+      IonRouterOutlet, 
+      IonTabBar, 
+      IonTabButton, 
+      IonTabs, 
+      IonTitle, 
+      IonToolbar 
+  } from '@ionic/react';
+import { IonReactRouter } from '@ionic/react-router';
+import { bookOutline, search, star } from 'ionicons/icons';
+import { Route, Redirect } from 'react-router';
 
-export default Home;
+import Favorites from './home-tabs/Favorites';
+import Feed from './home-tabs/Feed';
+import Search from './home-tabs/Search';
+  
+  const Home: React.FC = () => {
+
+    const tabs = [
+      {name:'Feed', tab:'feed',url: '/GreenPoints/app/home/feed', icon: bookOutline},
+      {name:'Search', tab:'search', url: '/GreenPoints/app/home/search', icon: search},
+      {name:'Favorites',tab:'favorites', url: '/GreenPoints/app/home/favorites', icon: star},
+    ]
+    
+    return (
+      <IonReactRouter>
+        <IonTabs>
+          <IonTabBar slot="bottom">
+
+            {tabs.map((item, index) => (
+              <IonTabButton key={index} tab={item.tab} href={item.url}>
+                <IonIcon icon={item.icon} />
+                <IonLabel>{item.name}</IonLabel>
+              </IonTabButton>
+            ))}
+            
+          </IonTabBar>
+        <IonRouterOutlet>
+
+          <Route exact path="/GreenPoints/app/home/feed" render={Feed} />
+          <Route exact path="/GreenPoints/app/home/search" render={Search} />
+          <Route exact path="/GreenPoints/app/home/favorites" render={Favorites} />
+
+          <Route exact path="/GreenPoints/app/home">
+            <Redirect to="/GreenPoints/app/home/feed" />
+          </Route>
+
+        </IonRouterOutlet>
+        </IonTabs>
+      </IonReactRouter>
+    );
+  };
+  
+  export default Home;
