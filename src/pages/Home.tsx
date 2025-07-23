@@ -46,9 +46,9 @@ import Search from './home-tabs/Search';
           </IonTabBar>
         <IonRouterOutlet>
 
-          <Route exact path="/GreenPoints/app/home/feed" render={Feed} />
-          <Route exact path="/GreenPoints/app/home/search" render={Search} />
-          <Route exact path="/GreenPoints/app/home/favorites" render={Favorites} />
+          <Route exact path="/GreenPoints/app/home/feed" component={Feed} />
+          <Route exact path="/GreenPoints/app/home/search" component={Search} />
+          <Route exact path="/GreenPoints/app/home/favorites" component={Favorites} />
 
           <Route exact path="/GreenPoints/app/home">
             <Redirect to="/GreenPoints/app/home/feed" />
