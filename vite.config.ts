@@ -10,6 +10,7 @@ export default defineConfig({
     react(),
     legacy()
   ],
+  base: "/GreenPoints",
   test: {
     globals: true,
     environment: 'jsdom',
