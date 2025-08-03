@@ -1,0 +1,19 @@
+.login-background {
+  background-image: url("/forest.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* Ensures email/password inputs are visible */
+.custom-input {
+  --background: rgba(255, 255, 255, 0.95);
+  --color: #000;
+  --placeholder-color: #666;
+  --padding-start: 12px;
+  --highlight-color-focused: #28a745;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
