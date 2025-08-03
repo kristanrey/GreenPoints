@@ -20,8 +20,8 @@ import './theme/variables.css';
 // ✅ Import your pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import Menu from './pages/Menu';
 import Registration from './pages/Register';
+import UserDashboard from './pages/UserDashboard'; // <-- Add this line
 
 setupIonicReact();
 
@@ -38,7 +38,7 @@ const App: React.FC = () => (
           <Route exact path="/GreenPoints" component={Landing} />
           <Route path="/GreenPoints/login" component={Login} />
           <Route path="/GreenPoints/register" component={Registration} />
-          <Route path="/GreenPoints/app" component={Menu} />
+          <Route path="/GreenPoints/user-dashboard" component={UserDashboard} /> {/* ✅ New Dashboard Route */}
 
         </IonRouterOutlet>
       </IonReactRouter>
