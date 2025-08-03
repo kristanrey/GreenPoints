@@ -1,0 +1,66 @@
+/* src/pages/Landing.css */
+
+.landing-background {
+  background-image: url('/forest.jpg'); /* ✅ Loads from public folder */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: brightness(0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.landing-container {
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 16px;
+  margin-bottom: 30px;
+  display: block;
+}
+.logo {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+}
+
+
+.start-button,
+.learn-button {
+  margin-top: 10px;
+  font-weight: bold;
+  border-radius: 10px;
+  width: 100%;
+}
+
+.footer {
+  margin-top: 30px;
+  font-size: 12px;
+  display: block;
+  color: #f0f0f0;
+}
