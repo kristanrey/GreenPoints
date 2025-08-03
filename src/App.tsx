@@ -21,7 +21,8 @@ import './theme/variables.css';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Registration from './pages/Register';
-import UserDashboard from './pages/UserDashboard'; // <-- Add this line
+import UserDashboard from './pages/UserDashboard';
+import SubmitTree from './pages/SubmitTree';
 
 setupIonicReact();
 
@@ -37,8 +38,9 @@ const App: React.FC = () => (
           {/* ✅ Main Routes */}
           <Route exact path="/GreenPoints" component={Landing} />
           <Route path="/GreenPoints/login" component={Login} />
+          <Route path="/GreenPoints/user-dashboard" component={UserDashboard} />
           <Route path="/GreenPoints/register" component={Registration} />
-          <Route path="/GreenPoints/user-dashboard" component={UserDashboard} /> {/* ✅ New Dashboard Route */}
+          <Route path="/GreenPoints/submit-tree" component={SubmitTree} />
 
         </IonRouterOutlet>
       </IonReactRouter>

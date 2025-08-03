@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import './login.css';
 
 import {
@@ -40,6 +41,13 @@ const Login: React.FC = () => {
       return;
     }
 
+    localStorage.setItem("currentUser", JSON.stringify({
+      name: email,
+      email: email,
+      treesPlanted: 0,
+      greenpoints: 0,
+    }));
+
     presentToast({
       message: "Login Success!",
       duration: 2000,
@@ -47,7 +55,7 @@ const Login: React.FC = () => {
       color: "success",
     });
 
-    router.push("/GreenPoints/app");
+    router.push("/GreenPoints/user-dashboard");
   };
 
   const goToRegister = () => {
@@ -65,6 +73,7 @@ const Login: React.FC = () => {
           .then(res => res.json())
           .then(decoded => {
             const googleEmail = decoded.email;
+            const googleName = decoded.name;
             const users = JSON.parse(localStorage.getItem("users") || "[]");
             const existingUser = users.find((u: any) => u.email === googleEmail);
 
@@ -73,14 +82,22 @@ const Login: React.FC = () => {
               localStorage.setItem("users", JSON.stringify(users));
             }
 
+            // ✅ Store OAuth user as current user
+            localStorage.setItem("currentUser", JSON.stringify({
+              name: googleName,
+              email: googleEmail,
+              treesPlanted: 0,
+              greenpoints: 0,
+            }));
+
             presentToast({
-              message: `Welcome ${decoded.name}!`,
+              message: `Welcome ${googleName}!`,
               duration: 2000,
               position: "top",
               color: "success",
             });
 
-            router.push("/GreenPoints/app");
+            router.push("/GreenPoints/user-dashboard");
           });
       }
     },
@@ -179,6 +196,14 @@ const Login: React.FC = () => {
                   localStorage.setItem("users", JSON.stringify(users));
                 }
 
+                // ✅ Store Facebook OAuth user
+                localStorage.setItem("currentUser", JSON.stringify({
+                  name: fbName,
+                  email: fbEmail,
+                  treesPlanted: 0,
+                  greenpoints: 0,
+                }));
+
                 presentToast({
                   message: `Welcome ${fbName}!`,
                   duration: 2000,
@@ -186,7 +211,7 @@ const Login: React.FC = () => {
                   color: "success",
                 });
 
-                router.push("/GreenPoints/app");
+                router.push("/GreenPoints/user-dashboard");
               }}
               onFail={(err) => {
                 console.error("Facebook Login Error:", err);
