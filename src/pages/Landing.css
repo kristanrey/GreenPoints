@@ -16,7 +16,7 @@
 }
 
 .landing-container {
-  padding: 20px;
+  padding: 10px;
   width: 100%;
   max-width: 400px;
   margin: auto;
@@ -44,9 +44,10 @@
   display: block;
 }
 .logo {
-  width: 100%;
-  max-width: 180px;
-  height: auto;
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  margin-bottom: 20px;
 }
 
 
@@ -63,4 +64,10 @@
   font-size: 12px;
   display: block;
   color: #f0f0f0;
+}
+.tree-icon {
+  width: 200px;   /* You can change this value */
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 20px;
 }

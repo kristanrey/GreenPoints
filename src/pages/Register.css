@@ -1,0 +1,29 @@
+.register-background {
+  background-image: url("/forest.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.register-container {
+  background: rgba(1, 44, 9, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.custom-input {
+  --background: #ffffff;
+  --color: #000000;
+  --placeholder-color: #666;
+  --padding-start: 12px;
+  --highlight-color-focused: #28a745;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}

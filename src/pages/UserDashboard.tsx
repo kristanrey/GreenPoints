@@ -1,4 +1,3 @@
-// src/pages/UserDashboard.tsx
 import {
   IonPage,
   IonContent,
@@ -7,10 +6,10 @@ import {
   IonCardContent,
   IonButton,
   IonIcon,
-  IonInput,
   IonToast,
+  IonModal,
 } from "@ionic/react";
-import { home, leaf, gift, person } from "ionicons/icons";
+import { home, leaf, gift, person, camera } from "ionicons/icons";
 import { useEffect, useState } from "react";
 import "./UserDashboard.css";
 
@@ -20,10 +19,11 @@ const UserDashboard: React.FC = () => {
   const [greenpoints, setGreenpoints] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    setUserName(currentUser.name || "Guest");
+    setUserName(currentUser.username || currentUser.name || "Guest");
     setTreesPlanted(currentUser.treesPlanted || 0);
     setGreenpoints(currentUser.greenpoints || 0);
   }, []);
@@ -36,19 +36,24 @@ const UserDashboard: React.FC = () => {
   };
 
   const handleMonitorStatus = () => {
-    setShowToast(true);
     setFeedback("Status: Your tree submissions are being validated.");
+    setShowToast(true);
   };
 
-  const handleSubmitTree = () => {
+  const handleOpenCamera = () => {
+    setShowCameraModal(true); // Simulates opening camera
+  };
+
+  const handleSimulatePhotoTaken = () => {
     const count = treesPlanted + 1;
     const points = greenpoints + 25;
 
     setTreesPlanted(count);
     setGreenpoints(points);
     updateLocalStorage(count, points);
+    setShowCameraModal(false);
+    setFeedback("📸 Tree photo submitted! Awaiting validation.");
     setShowToast(true);
-    setFeedback("Tree submitted! Waiting for validation.");
   };
 
   const handleViewRewards = () => {
@@ -83,7 +88,8 @@ const UserDashboard: React.FC = () => {
         <IonButton expand="block" className="dashboard-button" onClick={handleMonitorStatus}>
           Monitor Status
         </IonButton>
-        <IonButton expand="block" className="dashboard-button" onClick={handleSubmitTree}>
+        <IonButton expand="block" className="dashboard-button" color="success" onClick={handleOpenCamera}>
+          <IonIcon icon={camera} slot="start" />
           Submit New Tree
         </IonButton>
         <IonButton expand="block" className="dashboard-button" onClick={handleViewRewards}>
@@ -98,6 +104,24 @@ const UserDashboard: React.FC = () => {
           <IonIcon icon={gift} className="nav-icon" />
           <IonIcon icon={person} className="nav-icon" />
         </div>
+
+        {/* Camera Modal */}
+        <IonModal isOpen={showCameraModal} onDidDismiss={() => setShowCameraModal(false)}>
+          <IonContent className="ion-padding">
+            <h2 style={{ textAlign: "center" }}>Simulate Taking a Photo</h2>
+            <img
+              src="https://cdn-icons-png.flaticon.com/512/3771/3771421.png"
+              alt="Camera Simulation"
+              style={{ width: "100px", margin: "auto", display: "block" }}
+            />
+            <IonButton expand="full" color="success" onClick={handleSimulatePhotoTaken}>
+              Take Photo & Submit
+            </IonButton>
+            <IonButton expand="full" color="medium" onClick={() => setShowCameraModal(false)}>
+              Cancel
+            </IonButton>
+          </IonContent>
+        </IonModal>
 
         <IonToast
           isOpen={showToast}

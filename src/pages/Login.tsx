@@ -1,6 +1,5 @@
 // src/pages/Login.tsx
 import './login.css';
-
 import {
   IonAvatar,
   IonButton,
@@ -16,10 +15,14 @@ import {
   IonToolbar,
   IonText,
   IonAlert,
+  IonItem,
+  IonIcon,
   useIonRouter,
   useIonToast,
 } from "@ionic/react";
+import { mailOutline, lockClosedOutline } from 'ionicons/icons';
 import { useState } from "react";
+import { supabase } from "../utils/supabaseClient";
 import { useGoogleLogin } from '@react-oauth/google';
 import FacebookLogin from '@greatsumini/react-facebook-login';
 
@@ -31,22 +34,55 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const doLogin = () => {
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => u.email === email && u.password === password);
-
-    if (!user) {
-      setAlertMessage("The username you entered isn’t connected to an account. Find your account and log in.");
+  const doLogin = async () => {
+    if (!email || !password) {
+      setAlertMessage("Please fill in both fields.");
       setShowAlert(true);
       return;
     }
 
-    localStorage.setItem("currentUser", JSON.stringify({
-      name: email,
-      email: email,
-      treesPlanted: 0,
-      greenpoints: 0,
-    }));
+    // Attempt login
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      if (authError.message.toLowerCase().includes("email not confirmed")) {
+        setAlertMessage("Please confirm your email before logging in. Check your inbox.");
+      } else if (authError.message.toLowerCase().includes("invalid login credentials")) {
+        setAlertMessage("Invalid email or password.");
+      } else {
+        setAlertMessage(authError.message);
+      }
+      setShowAlert(true);
+      return;
+    }
+
+    // Fetch profile data if exists
+    let profileData = null;
+    const { data: fetchedProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (!profileError) {
+      profileData = fetchedProfile;
+    }
+
+    // Store in localStorage
+    localStorage.setItem(
+      "currentUser",
+      JSON.stringify({
+        id: authData.user.id,
+        name: profileData?.username || email,
+        email: authData.user.email,
+        role: profileData?.role || "User",
+        treesPlanted: profileData?.trees_planted || 0,
+        greenpoints: profileData?.greenpoints || 0,
+      })
+    );
 
     presentToast({
       message: "Login Success!",
@@ -63,43 +99,9 @@ const Login: React.FC = () => {
   };
 
   const loginWithGoogle = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      if (tokenResponse.access_token) {
-        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: {
-            Authorization: `Bearer ${tokenResponse.access_token}`,
-          },
-        })
-          .then(res => res.json())
-          .then(decoded => {
-            const googleEmail = decoded.email;
-            const googleName = decoded.name;
-            const users = JSON.parse(localStorage.getItem("users") || "[]");
-            const existingUser = users.find((u: any) => u.email === googleEmail);
-
-            if (!existingUser) {
-              users.push({ email: googleEmail, password: "google_oauth" });
-              localStorage.setItem("users", JSON.stringify(users));
-            }
-
-            // ✅ Store OAuth user as current user
-            localStorage.setItem("currentUser", JSON.stringify({
-              name: googleName,
-              email: googleEmail,
-              treesPlanted: 0,
-              greenpoints: 0,
-            }));
-
-            presentToast({
-              message: `Welcome ${googleName}!`,
-              duration: 2000,
-              position: "top",
-              color: "success",
-            });
-
-            router.push("/GreenPoints/user-dashboard");
-          });
-      }
+    onSuccess: async (tokenResponse) => {
+      setAlertMessage("Google login is not yet linked with Supabase.");
+      setShowAlert(true);
     },
     onError: () => {
       setAlertMessage("Google Sign-In failed. Please try again.");
@@ -109,150 +111,91 @@ const Login: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Login</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-
       <IonContent fullscreen>
         <div className="login-background">
-          <IonGrid style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <IonRow>
-              <IonCol className="ion-text-center">
-                <IonAvatar style={{ width: "100px", height: "100px", margin: "auto" }}>
-                  <img
-                    src="https://marketplace.canva.com/ARZ8E/MAFmAUARZ8E/1/tl/canva-natural-leaf-icon.-100%25-naturals-vector-image-MAFmAUARZ8E.png"
-                    alt="Avatar"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                </IonAvatar>
-              </IonCol>
-            </IonRow>
-          </IonGrid>
-
-          <IonInput
-            className="custom-input"
-            label="Email"
-            type="email"
-            value={email}
-            onIonChange={(e) => setEmail(e.detail.value!)}
-            placeholder="Enter email"
-          />
-          <IonInput
-            className="custom-input"
-            type="password"
-            label="Password"
-            value={password}
-            onIonChange={(e) => setPassword(e.detail.value!)}
-            placeholder="Enter password"
-          >
-            <IonInputPasswordToggle slot="end" />
-          </IonInput>
-
-          <IonButton onClick={doLogin} expand="full" style={{ marginTop: '15px' }}>
-            Login
-          </IonButton>
-
-          <IonText color="medium" style={{ display: "block", marginTop: "10px", textAlign: "center" }}>
-            or
-          </IonText>
-
-          <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginTop: "15px" }}>
-            <div
-              onClick={() => loginWithGoogle()}
-              style={{
-                cursor: "pointer",
-                width: "50px",
-                height: "50px",
-                borderRadius: "50%",
-                overflow: "hidden",
-              }}
-            >
+          <div className="login-container">
+            <IonAvatar className="login-logo">
               <img
-                src="https://developers.google.com/identity/images/g-logo.png"
-                alt="Google Login"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
+                src="https://marketplace.canva.com/ARZ8E/MAFmAUARZ8E/1/tl/canva-natural-leaf-icon.-100%25-naturals-vector-image-MAFmAUARZ8E.png"
+                alt="Avatar"
               />
+            </IonAvatar>
+
+            <IonItem className="custom-input" lines="none">
+              <IonIcon icon={mailOutline} slot="start" />
+              <IonInput
+                type="email"
+                value={email}
+                onIonChange={(e) => setEmail(e.detail.value!)}
+                placeholder="Enter email"
+              />
+            </IonItem>
+    
+            <IonItem className="custom-input" lines="none">
+              <IonIcon icon={lockClosedOutline} slot="start" />
+              <IonInput
+                type="password"
+                value={password}
+                onIonChange={(e) => setPassword(e.detail.value!)}
+                placeholder="Enter password"
+              >
+                <IonInputPasswordToggle slot="end" />
+              </IonInput>
+            </IonItem>
+
+            <IonButton onClick={doLogin} expand="block" className="login-button">
+              Login
+            </IonButton>
+
+            <IonText className="login-or">or</IonText>
+
+            <div className="oauth-buttons">
+              <div onClick={() => loginWithGoogle()} className="oauth-icon">
+                <img
+                  src="https://developers.google.com/identity/images/g-logo.png"
+                  alt="Google Login"
+                />
+              </div>
+
+              <FacebookLogin
+                appId="741074022014246"
+                autoLoad={false}
+                useRedirect={false}
+                onSuccess={() => {
+                  setAlertMessage("Facebook login is not yet linked with Supabase.");
+                  setShowAlert(true);
+                }}
+                onFail={(err) => {
+                  console.error("Facebook Login Error:", err);
+                  setAlertMessage("Facebook login failed.");
+                  setShowAlert(true);
+                }}
+                scope="public_profile,email"
+                fields="name,email"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
+                  alt="Facebook Login"
+                  className="facebook-icon"
+                />
+              </FacebookLogin>
             </div>
 
-            <FacebookLogin
-              appId="741074022014246"
-              autoLoad={false}
-              useRedirect={false}
-              onSuccess={(response: any) => {
-                const fbEmail = response.email || `user_${response.userID}@facebook.com`;
-                const fbName = response.name || 'Facebook User';
+            <IonText className="register-text">
+              Don't have an account?{" "}
+              <span onClick={goToRegister} className="register-link">
+                Sign up
+              </span>
+            </IonText>
 
-                const users = JSON.parse(localStorage.getItem("users") || "[]");
-                const existingUser = users.find((u: any) => u.email === fbEmail);
-
-                if (!existingUser) {
-                  users.push({ email: fbEmail, password: "facebook_oauth" });
-                  localStorage.setItem("users", JSON.stringify(users));
-                }
-
-                // ✅ Store Facebook OAuth user
-                localStorage.setItem("currentUser", JSON.stringify({
-                  name: fbName,
-                  email: fbEmail,
-                  treesPlanted: 0,
-                  greenpoints: 0,
-                }));
-
-                presentToast({
-                  message: `Welcome ${fbName}!`,
-                  duration: 2000,
-                  position: "top",
-                  color: "success",
-                });
-
-                router.push("/GreenPoints/user-dashboard");
-              }}
-              onFail={(err) => {
-                console.error("Facebook Login Error:", err);
-                setAlertMessage("Facebook login failed.");
-                setShowAlert(true);
-              }}
-              scope="public_profile,email"
-              fields="name,email"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-              }}
-            >
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
-                alt="Facebook Login"
-                style={{
-                  width: "50px",
-                  height: "50px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                }}
-              />
-            </FacebookLogin>
+            <IonAlert
+              isOpen={showAlert}
+              message={alertMessage}
+              buttons={["OK"]}
+              onDidDismiss={() => setShowAlert(false)}
+            />
           </div>
-
-          <IonText color="primary" style={{ display: "block", marginTop: "15px", textAlign: "center" }}>
-            Don't have an account?{" "}
-            <span onClick={goToRegister} style={{ textDecoration: "underline", cursor: "pointer" }}>
-              Sign up
-            </span>
-          </IonText>
-
-          <IonAlert
-            isOpen={showAlert}
-            message={alertMessage}
-            buttons={["OK"]}
-            onDidDismiss={() => setShowAlert(false)}
-          />
         </div>
       </IonContent>
     </IonPage>

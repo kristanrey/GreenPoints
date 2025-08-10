@@ -30,7 +30,9 @@ const Landing: React.FC = () => {
               src="https://scontent.fmnl14-1.fna.fbcdn.net/v/t1.15752-9/522341098_1094714478913591_4251909951679950225_n.png?_nc_cat=105&ccb=1-7&_nc_sid=0024fc&_nc_eui2=AeGWIpOxQ_W3lYt9sxtKQdADrb9lzD4spMmtv2XMPiykyU2qRncsDps76OTLE1sDLg4T6KkFROMU_Z2nGj1xCFA3&_nc_ohc=aiu6zcxlj7kQ7kNvwFEDwUM&_nc_oc=AdlNPzbwq15gEULoqapNGyd1NZLMAVhqK1mgrTyqW4lreNW29hZhpYlgMXkEpi5r2YA&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent.fmnl14-1.fna&oh=03_Q7cD3AGpifJC1VUqPKnxh4sQ-xiFAw8P0Gyi_MBO7QuJIt9cNA&oe=68B63177"
               alt="Tree Icon"
               className="tree-icon"
-            />
+               style={{ width: "200px", height: "180px" }} // 👈 test override
+/>
+            
 
             <IonButton
               expand="block"
