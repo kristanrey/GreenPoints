@@ -23,6 +23,7 @@ import Login from './pages/Login';
 import Registration from './pages/Register';
 import UserDashboard from './pages/UserDashboard';
 import SubmitTree from './pages/SubmitTree';
+import Leaderboard from './pages/Leaderboard';
 
 setupIonicReact();
 
@@ -41,6 +42,8 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/user-dashboard" component={UserDashboard} />
           <Route path="/GreenPoints/register" component={Registration} />
           <Route path="/GreenPoints/submit-tree" component={SubmitTree} />
+          <Route path="/leaderboard" component={Leaderboard} exact />
+
 
         </IonRouterOutlet>
       </IonReactRouter>
