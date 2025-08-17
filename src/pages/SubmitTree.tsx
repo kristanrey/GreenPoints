@@ -63,24 +63,29 @@ const SubmitNewTree: React.FC = () => {
     streamRef.current = null;
   };
 
+  // Get current location
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
+      let position;
       if (isNative) {
-        const pos = await Geolocation.getCurrentPosition();
-        return { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      } else if ("geolocation" in navigator) {
-        return new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            (err) => { console.error(err); show("Unable to get location."); resolve(null); },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
-          );
-        });
+        position = await Geolocation.getCurrentPosition();
       } else {
-        throw new Error("Geolocation not supported.");
+        position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!("geolocation" in navigator)) reject("Geolocation not supported");
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 10000,
+          });
+        });
       }
-    } catch (err: any) {
-      console.error(err);
+
+      const newCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setCoords(newCoords);
+      console.log("✅ GPS coords obtained:", newCoords);
+      return newCoords;
+    } catch (err) {
+      console.error("⚠️ Error getting location:", err);
       show("Unable to get location. Please allow location permission.");
       return null;
     }
@@ -95,10 +100,8 @@ const SubmitNewTree: React.FC = () => {
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(v, 0, 0);
-    const dataUrl = c.toDataURL("image/jpeg", 0.9);
-    setPhotoDataUrl(dataUrl);
-    const newCoords = await getGeoCoords();
-    if (newCoords) setCoords(newCoords);
+    setPhotoDataUrl(c.toDataURL("image/jpeg", 0.9));
+    await getGeoCoords();
   };
 
   const takePhotoMobile = async () => {
@@ -110,10 +113,9 @@ const SubmitNewTree: React.FC = () => {
         correctOrientation: true,
       });
       setPhotoDataUrl(image.dataUrl ?? null);
-      const newCoords = await getGeoCoords();
-      if (newCoords) setCoords(newCoords);
+      await getGeoCoords();
     } catch (err) {
-      console.error(err);
+      console.error("Camera error:", err);
       show("Camera canceled or unavailable.");
     }
   };
@@ -132,31 +134,34 @@ const SubmitNewTree: React.FC = () => {
     try {
       if (!photoDataUrl) return show("Please take a photo first.");
 
-      // Wait for coordinates
+      // Ensure we have coords
       let currentCoords = coords;
       if (!currentCoords) {
         currentCoords = await getGeoCoords();
         if (!currentCoords) return show("Location required.");
       }
 
-      console.log("Submitting with coords:", currentCoords);
-
       setBusy(true);
 
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
+      console.log("Submitting with coords:", currentCoords);
+
       const blob = dataUrlToBlob(photoDataUrl);
       const filename = `trees/${user.id}/${Date.now()}.jpg`;
 
+      // Upload image to storage
       const { error: upErr } = await supabase.storage
         .from(BUCKET)
         .upload(filename, blob, { contentType: "image/jpeg" });
       if (upErr) throw upErr;
 
+      // Get public URL
       const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
+      // Insert record with geo
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -173,7 +178,6 @@ const SubmitNewTree: React.FC = () => {
       show("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);
       setCoords(null);
-
     } catch (err: any) {
       console.error("Submit error:", err);
       show(`❌ ${err.message || "Submission failed"}`);
