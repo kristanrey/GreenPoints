@@ -1,4 +1,3 @@
-// src/pages/SubmitNewTree.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   IonPage,
@@ -16,7 +15,7 @@ import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
 
-const BUCKET = "tree-images"; // your Supabase storage bucket name
+const BUCKET = "tree_submissions";
 
 const SubmitNewTree: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
@@ -27,7 +26,6 @@ const SubmitNewTree: React.FC = () => {
   const [isNative, setIsNative] = useState<boolean>(false);
   const [usingWebcam, setUsingWebcam] = useState<boolean>(false);
 
-  // Webcam refs (desktop)
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -37,13 +35,11 @@ const SubmitNewTree: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // On desktop/web, start webcam automatically
     if (!isNative) {
       startWebcam();
       setUsingWebcam(true);
     }
     return () => stopWebcam();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNative]);
 
   const startWebcam = async () => {
@@ -57,7 +53,7 @@ const SubmitNewTree: React.FC = () => {
       }
     } catch (err) {
       console.error("Webcam error:", err);
-      show("Unable to access webcam. You can upload from file instead.");
+      show("Unable to access webcam. Try mobile.");
       setUsingWebcam(false);
     }
   };
@@ -67,7 +63,30 @@ const SubmitNewTree: React.FC = () => {
     streamRef.current = null;
   };
 
-  const captureFromWebcam = () => {
+  const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      if (isNative) {
+        const pos = await Geolocation.getCurrentPosition();
+        return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } else if ("geolocation" in navigator) {
+        return new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            (err) => { console.error(err); show("Unable to get location."); resolve(null); },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+          );
+        });
+      } else {
+        throw new Error("Geolocation not supported.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      show("Unable to get location. Please allow location permission.");
+      return null;
+    }
+  };
+
+  const captureFromWebcam = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const v = videoRef.current;
     const c = canvasRef.current;
@@ -78,6 +97,8 @@ const SubmitNewTree: React.FC = () => {
     ctx.drawImage(v, 0, 0);
     const dataUrl = c.toDataURL("image/jpeg", 0.9);
     setPhotoDataUrl(dataUrl);
+    const newCoords = await getGeoCoords();
+    if (newCoords) setCoords(newCoords);
   };
 
   const takePhotoMobile = async () => {
@@ -89,46 +110,17 @@ const SubmitNewTree: React.FC = () => {
         correctOrientation: true,
       });
       setPhotoDataUrl(image.dataUrl ?? null);
+      const newCoords = await getGeoCoords();
+      if (newCoords) setCoords(newCoords);
     } catch (err) {
       console.error(err);
       show("Camera canceled or unavailable.");
     }
   };
 
-  const getGeo = async () => {
-    try {
-      if (isNative) {
-        const pos = await Geolocation.getCurrentPosition();
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      } else {
-        await new Promise<void>((resolve, reject) => {
-          if (!("geolocation" in navigator)) {
-            reject("Geolocation not supported.");
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              setCoords({
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-              });
-              resolve();
-            },
-            (err) => reject(err),
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
-          );
-        });
-      }
-    } catch (err: any) {
-      console.error("Geolocation error:", err);
-      show("Unable to get location. Please allow location permission.");
-    }
-  };
-
   const dataUrlToBlob = (dataUrl: string) => {
     const [meta, b64] = dataUrl.split(",");
-    const mimeMatch = meta.match(/data:(.*);base64/);
-    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const mime = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
     const binStr = atob(b64);
     const len = binStr.length;
     const arr = new Uint8Array(len);
@@ -138,57 +130,52 @@ const SubmitNewTree: React.FC = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!photoDataUrl) {
-        show("Please take a photo first.");
-        return;
+      if (!photoDataUrl) return show("Please take a photo first.");
+
+      // Wait for coordinates
+      let currentCoords = coords;
+      if (!currentCoords) {
+        currentCoords = await getGeoCoords();
+        if (!currentCoords) return show("Location required.");
       }
+
+      console.log("Submitting with coords:", currentCoords);
+
       setBusy(true);
 
-      // 1) Ensure logged in
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-      if (userErr || !user) throw new Error("You must be logged in.");
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) throw new Error("You must be logged in");
 
-      // 2) Ensure we have GPS
-      if (!coords) {
-        await getGeo();
-        if (!coords) throw new Error("Location required.");
-      }
-
-      // 3) Upload to storage
       const blob = dataUrlToBlob(photoDataUrl);
       const filename = `trees/${user.id}/${Date.now()}.jpg`;
-      const { error: upErr } = await supabase
-        .storage
+
+      const { error: upErr } = await supabase.storage
         .from(BUCKET)
-        .upload(filename, blob, { contentType: "image/jpeg", upsert: false });
+        .upload(filename, blob, { contentType: "image/jpeg" });
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // 4) Insert DB row
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
           image_path: filename,
           image_url: publicUrl,
-          latitude: coords.lat,
-          longitude: coords.lng,
+          latitude: currentCoords.lat,
+          longitude: currentCoords.lng,
           status: "pending",
           description: "Planted a new tree 🌱",
         },
       ]);
       if (dbErr) throw dbErr;
 
-      show("✅ Tree submitted with geo-tag! Awaiting validation.");
-      // reset UI
+      show("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);
       setCoords(null);
+
     } catch (err: any) {
-      console.error(err);
+      console.error("Submit error:", err);
       show(`❌ ${err.message || "Submission failed"}`);
     } finally {
       setBusy(false);
@@ -208,40 +195,22 @@ const SubmitNewTree: React.FC = () => {
           <p>Take a photo and we’ll attach your GPS location.</p>
         </IonText>
 
-        {/* Mobile / Native: Use Capacitor Camera */}
         {isNative && !photoDataUrl && (
           <IonButton expand="block" onClick={takePhotoMobile}>
-            <IonIcon icon={cameraIcon} slot="start" />
-            Open Camera
+            <IonIcon icon={cameraIcon} slot="start" /> Open Camera
           </IonButton>
         )}
 
-        {/* Desktop/Web: Webcam live preview */}
-        {!isNative && !photoDataUrl && (
+        {!isNative && !photoDataUrl && usingWebcam && (
           <div>
-            {usingWebcam ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  style={{ width: "100%", borderRadius: 12 }}
-                />
-                <IonButton expand="block" onClick={captureFromWebcam} className="ion-margin-top">
-                  <IonIcon icon={cameraIcon} slot="start" />
-                  Take Photo
-                </IonButton>
-                <canvas ref={canvasRef} style={{ display: "none" }} />
-              </>
-            ) : (
-              <IonText>
-                <p>Webcam unavailable. Try mobile camera or allow webcam access.</p>
-              </IonText>
-            )}
+            <video ref={videoRef} autoPlay playsInline style={{ width: "100%", borderRadius: 12 }} />
+            <IonButton expand="block" onClick={captureFromWebcam} className="ion-margin-top">
+              <IonIcon icon={cameraIcon} slot="start" /> Take Photo
+            </IonButton>
+            <canvas ref={canvasRef} style={{ display: "none" }} />
           </div>
         )}
 
-        {/* Preview + location button */}
         {photoDataUrl && (
           <>
             <IonImg src={photoDataUrl} style={{ borderRadius: 12, marginTop: 12 }} />
@@ -250,10 +219,6 @@ const SubmitNewTree: React.FC = () => {
             </IonButton>
           </>
         )}
-
-        <IonButton expand="block" onClick={getGeo} className="ion-margin-top">
-          Get Current Location
-        </IonButton>
 
         {coords && (
           <IonText>
@@ -264,24 +229,12 @@ const SubmitNewTree: React.FC = () => {
           </IonText>
         )}
 
-        <IonButton
-          expand="block"
-          color="success"
-          onClick={handleSubmit}
-          disabled={!photoDataUrl}
-          className="ion-margin-top"
-        >
-          <IonIcon icon={checkmarkCircle} slot="start" />
-          Submit Tree
+        <IonButton expand="block" color="success" onClick={handleSubmit} disabled={!photoDataUrl} className="ion-margin-top">
+          <IonIcon icon={checkmarkCircle} slot="start" /> Submit Tree
         </IonButton>
 
         <IonLoading isOpen={busy} message="Submitting..." />
-        <IonToast
-          isOpen={showToast}
-          message={toastMsg}
-          duration={2500}
-          onDidDismiss={() => setShowToast(false)}
-        />
+        <IonToast isOpen={showToast} message={toastMsg} duration={2500} onDidDismiss={() => setShowToast(false)} />
       </IonContent>
     </IonPage>
   );

@@ -141,7 +141,7 @@ const UserDashboard: React.FC = () => {
 
       const fileName = `trees/${user.id}-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
-        .from("tree-images")
+        .from("tree_submissions")
         .upload(fileName, dataURLtoBlob(image.dataUrl), {
           contentType: "image/jpeg",
         });
@@ -154,7 +154,7 @@ const UserDashboard: React.FC = () => {
       }
 
       const { data: publicUrlData } = supabase.storage
-        .from("tree-images")
+        .from("tree_submissions")
         .getPublicUrl(fileName);
 
       const { error } = await supabase.from("tree_submissions").insert([
