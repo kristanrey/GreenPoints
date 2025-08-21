@@ -9,6 +9,12 @@ import {
   IonToast,
   IonModal,
   IonSpinner,
+  IonFooter,
+  IonTabs,
+  IonTabBar,
+  IonTabButton,
+  IonLabel,
+  IonBadge,
 } from "@ionic/react";
 import {
   home,
@@ -19,6 +25,9 @@ import {
   statsChart,
   checkmarkDoneCircle,
   podium,
+  logOut,
+  trophy,
+  images,
 } from "ionicons/icons";
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
@@ -35,6 +44,8 @@ const UserDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [pendingSubmissions, setPendingSubmissions] = useState(0);
+  const [activeTab, setActiveTab] = useState("home");
 
   // Fetch user profile
   const fetchUserData = async () => {
@@ -70,6 +81,18 @@ const UserDashboard: React.FC = () => {
       setTreesPlanted(data?.trees_planted || 0);
       setGreenpoints(data?.greenpoints || 0);
     }
+
+    // Fetch pending submissions count
+    const { count, error: submissionsError } = await supabase
+      .from("tree_submissions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "pending");
+
+    if (!submissionsError) {
+      setPendingSubmissions(count || 0);
+    }
+
     setLoading(false);
   };
 
@@ -103,6 +126,15 @@ const UserDashboard: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setFeedback("👋 Logged out successfully!");
+    setShowToast(true);
+    // Redirect to login page after a short delay
+    setTimeout(() => window.location.href = "/login", 1500);
+  };
 
   // Capture and submit tree photo
   const handleTakePhoto = async () => {
@@ -170,6 +202,7 @@ const UserDashboard: React.FC = () => {
         setFeedback(`❌ Failed to submit tree: ${error.message}`);
       } else {
         setFeedback("✅ Tree photo submitted! Awaiting validation.");
+        setPendingSubmissions(prev => prev + 1);
       }
       setShowToast(true);
     } catch (err) {
@@ -195,6 +228,20 @@ const UserDashboard: React.FC = () => {
     return new Blob([u8arr], { type: mime });
   }
 
+  // View rewards function
+  const handleViewRewards = () => {
+    setActiveTab("rewards");
+    setFeedback(`🎁 You have ${greenpoints} GreenPoints to redeem! Check out our rewards catalog.`);
+    setShowToast(true);
+  };
+
+  // View profile function
+  const handleViewProfile = () => {
+    setActiveTab("profile");
+    setFeedback("👤 Viewing your profile information.");
+    setShowToast(true);
+  };
+
   if (loading) {
     return (
       <IonPage>
@@ -209,89 +256,153 @@ const UserDashboard: React.FC = () => {
   return (
     <IonPage>
       <IonContent fullscreen className="dashboard-content">
-        <div className="welcome-text">
-          <IonIcon
-            icon={person}
-            style={{ marginRight: 8, verticalAlign: "middle" }}
-          />
-          Welcome back, <strong>{userName}</strong>
+        {/* Header Section */}
+        <div className="dashboard-header">
+          <div className="welcome-section">
+            <IonIcon icon={person} className="welcome-icon" />
+            <div className="welcome-text">
+              Welcome back, <strong>{userName}</strong>
+            </div>
+          </div>
+          <IonButton 
+            fill="clear" 
+            size="small" 
+            onClick={handleLogout}
+            title="Logout"
+          >
+            <IonIcon icon={logOut} slot="icon-only" />
+          </IonButton>
         </div>
 
+        {/* Stats Card */}
         <IonCard className="stats-card">
           <IonCardContent>
             <div className="stat-item">
-              <IonIcon
-                icon={leaf}
-                className="tree-icon"
-                style={{ color: "#2ecc71", marginRight: 8 }}
-              />
-              <IonText className="stat-label">Trees Planted</IonText>
-              <IonText className="stat-value">{treesPlanted}</IonText>
+              <div className="stat-icon-container">
+                <IonIcon icon={leaf} className="stat-icon tree-icon" />
+              </div>
+              <div className="stat-details">
+                <IonText className="stat-value">{treesPlanted}</IonText>
+                <IonText className="stat-label">Trees Planted</IonText>
+              </div>
             </div>
-            <hr className="divider" />
+            
+            <div className="stat-divider"></div>
+            
             <div className="stat-item">
-              <IonIcon
-                icon={gift}
-                className="greenpoints-icon"
-                style={{ color: "#f1c40f", marginRight: 8 }}
-              />
-              <IonText className="stat-label">Greenpoints Earned</IonText>
-              <IonText className="stat-value">{greenpoints}</IonText>
+              <div className="stat-icon-container">
+                <IonIcon icon={gift} className="stat-icon greenpoints-icon" />
+              </div>
+              <div className="stat-details">
+                <IonText className="stat-value">{greenpoints}</IonText>
+                <IonText className="stat-label">Greenpoints</IonText>
+              </div>
             </div>
           </IonCardContent>
         </IonCard>
 
-        <IonButton
-          expand="block"
-          className="dashboard-button"
-          onClick={() => {
-            setFeedback("📊 Your submissions are under review.");
-            setShowToast(true);
-          }}
-          disabled={submitting}
-        >
-          <IonIcon icon={statsChart} slot="start" />
-          Monitor Status
-        </IonButton>
+        {/* Action Buttons */}
+        <div className="action-buttons">
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            onClick={() => {
+              setFeedback("📊 Your submissions are under review.");
+              setShowToast(true);
+            }}
+            disabled={submitting}
+          >
+            <IonIcon icon={statsChart} slot="start" />
+            Monitor Status
+            {pendingSubmissions > 0 && (
+              <IonBadge color="warning" slot="end">
+                {pendingSubmissions}
+              </IonBadge>
+            )}
+          </IonButton>
 
-        <IonButton
-          expand="block"
-          className="dashboard-button"
-          color="success"
-          onClick={() => setShowCameraModal(true)}
-          disabled={submitting}
-        >
-          <IonIcon icon={camera} slot="start" />
-          Submit New Tree
-        </IonButton>
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="success"
+            onClick={() => setShowCameraModal(true)}
+            disabled={submitting}
+          >
+            <IonIcon icon={camera} slot="start" />
+            Submit New Tree
+          </IonButton>
 
-        <IonButton
-          expand="block"
-          className="dashboard-button"
-          onClick={() => {
-            setFeedback(`🎁 You have ${greenpoints} GreenPoints to redeem!`);
-            setShowToast(true);
-          }}
-          disabled={submitting}
-        >
-          <IonIcon icon={gift} slot="start" />
-          View Rewards
-        </IonButton>
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            onClick={handleViewRewards}
+            disabled={submitting}
+          >
+            <IonIcon icon={gift} slot="start" />
+            View Rewards
+          </IonButton>
 
-        <IonButton
-          expand="block"
-          className="dashboard-button"
-          color="tertiary"
-          routerLink="/leaderboard"
-        >
-          <IonIcon icon={podium} slot="start" />
-          View Leaderboard
-        </IonButton>
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="tertiary"
+            routerLink="/leaderboard"
+          >
+            <IonIcon icon={podium} slot="start" />
+            View Leaderboard
+          </IonButton>
+        </div>
 
-        <div className="bottom-nav">
-          <IonIcon icon={home} className="nav-icon" />
-          <IonIcon icon={gift} className="nav-icon" />
-          <IonIcon icon={person} className="nav-icon" />
+        {/* Content based on active tab */}
+        <div className="tab-content">
+          {activeTab === "home" && (
+            <div className="home-tab">
+              <IonCard>
+                <IonCardContent>
+                  <h3>Recent Activity</h3>
+                  <p>Your recent tree planting activities will appear here.</p>
+                </IonCardContent>
+              </IonCard>
+            </div>
+          )}
+          
+          {activeTab === "rewards" && (
+            <div className="rewards-tab">
+              <IonCard>
+                <IonCardContent>
+                  <h3>Available Rewards</h3>
+                  <p>Use your GreenPoints to redeem these exciting rewards:</p>
+                  <div className="rewards-list">
+                    <div className="reward-item">
+                      <IonIcon icon={gift} />
+                      <span>Planter's Kit (50 points)</span>
+                    </div>
+                    <div className="reward-item">
+                      <IonIcon icon={gift} />
+                      <span>Eco-friendly Water Bottle (100 points)</span>
+                    </div>
+                    <div className="reward-item">
+                      <IonIcon icon={gift} />
+                      <span>Tree Adoption Certificate (150 points)</span>
+                    </div>
+                  </div>
+                </IonCardContent>
+              </IonCard>
+            </div>
+          )}
+          
+          {activeTab === "profile" && (
+            <div className="profile-tab">
+              <IonCard>
+                <IonCardContent>
+                  <h3>Your Profile</h3>
+                  <p><strong>Username:</strong> {userName}</p>
+                  <p><strong>Member Since:</strong> {new Date().toLocaleDateString()}</p>
+                  <p><strong>Current Status:</strong> Eco Warrior 🌿</p>
+                </IonCardContent>
+              </IonCard>
+            </div>
+          )}
         </div>
 
         {/* Camera Modal */}
@@ -303,39 +414,80 @@ const UserDashboard: React.FC = () => {
             <h2 style={{ textAlign: "center" }}>
               <IonIcon icon={camera} /> Take a Tree Photo
             </h2>
-            <IonButton
-              expand="full"
-              color="success"
-              onClick={handleTakePhoto}
-              disabled={submitting}
-            >
-              <IonIcon icon={checkmarkDoneCircle} slot="start" />
-              Take Photo & Submit
-            </IonButton>
-            <IonButton
-              expand="full"
-              color="medium"
-              onClick={() => setShowCameraModal(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </IonButton>
+            <p className="ion-text-center">Please take a clear photo of the tree you planted for verification.</p>
+            
+            <div className="camera-modal-buttons">
+              <IonButton
+                expand="full"
+                color="success"
+                onClick={handleTakePhoto}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <IonSpinner name="crescent" />
+                ) : (
+                  <>
+                    <IonIcon icon={checkmarkDoneCircle} slot="start" />
+                    Take Photo & Submit
+                  </>
+                )}
+              </IonButton>
+              <IonButton
+                expand="full"
+                color="medium"
+                onClick={() => setShowCameraModal(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </IonButton>
+            </div>
           </IonContent>
         </IonModal>
 
         <IonToast
           isOpen={showToast}
           message={feedback}
-          duration={2500}
+          duration={3000}
           onDidDismiss={() => {
             setShowToast(false);
             setFeedback("");
           }}
         />
       </IonContent>
+
+      {/* Bottom Navigation */}
+      <IonFooter>
+        <IonTabBar slot="bottom">
+          <IonTabButton 
+            tab="home" 
+            onClick={() => setActiveTab("home")}
+            className={activeTab === "home" ? "tab-active" : ""}
+          >
+            <IonIcon icon={home} />
+            <IonLabel>Home</IonLabel>
+          </IonTabButton>
+          
+          <IonTabButton 
+            tab="rewards" 
+            onClick={handleViewRewards}
+            className={activeTab === "rewards" ? "tab-active" : ""}
+          >
+            <IonIcon icon={gift} />
+            <IonLabel>Rewards</IonLabel>
+          </IonTabButton>
+          
+          <IonTabButton 
+            tab="profile" 
+            onClick={handleViewProfile}
+            className={activeTab === "profile" ? "tab-active" : ""}
+          >
+            <IonIcon icon={person} />
+            <IonLabel>Profile</IonLabel>
+          </IonTabButton>
+        </IonTabBar>
+      </IonFooter>
     </IonPage>
   );
 };
 
 export default UserDashboard;
-  
