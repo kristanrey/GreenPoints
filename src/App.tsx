@@ -25,8 +25,7 @@ import UserDashboard from './pages/UserDashboard';
 import SubmitTree from './pages/SubmitTree';
 import Leaderboard from './pages/Leaderboard';
 import SetUsername from './pages/SetUsername';
-import OAuthCallback from './pages/OAuthCallback';  
-
+import OAuthCallback from './pages/OAuthCallback';
 
 setupIonicReact();
 
@@ -35,24 +34,18 @@ const App: React.FC = () => (
     <IonApp>
       <IonReactRouter>
         <IonRouterOutlet>
-
-          {/* Optional: Redirect '/' to '/GreenPoints' */}
+          {/* Redirect '/' to '/GreenPoints' */}
           <Route exact path="/" render={() => <Redirect to="/GreenPoints" />} />
 
           {/* ✅ Main Routes */}
           <Route exact path="/GreenPoints" component={Landing} />
-          <Route path="/GreenPoints/login" component={Login} />
-          <Route path="/GreenPoints/user-dashboard" component={UserDashboard} />
-          <Route path="/GreenPoints/register" component={Registration} />
-          <Route path="/GreenPoints/submit-tree" component={SubmitTree} />
-          <Route path="/leaderboard" component={Leaderboard} exact />
-          <Route path="/GreenPoints/set-username" component={SetUsername} exact />
-          <Route path="/GreenPoints/oauth-callback" component={OAuthCallback} exact />
-
-
-
-
-
+          <Route exact path="/GreenPoints/login" component={Login} />
+          <Route exact path="/GreenPoints/user-dashboard" component={UserDashboard} />
+          <Route exact path="/GreenPoints/register" component={Registration} />
+          <Route exact path="/GreenPoints/submit-tree" component={SubmitTree} />
+          <Route exact path="/GreenPoints/leaderboard" component={Leaderboard} />
+          <Route exact path="/GreenPoints/set-username" component={SetUsername} />
+          <Route exact path="/GreenPoints/oauth-callback" component={OAuthCallback} />
         </IonRouterOutlet>
       </IonReactRouter>
     </IonApp>

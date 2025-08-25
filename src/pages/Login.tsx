@@ -15,7 +15,6 @@ import {
 import { mailOutline, lockClosedOutline, personCircleOutline } from "ionicons/icons";
 import { useState } from "react";
 import { supabase } from "../utils/supabaseClient";
-import FacebookLogin from "@greatsumini/react-facebook-login";
 import { useIonRouter, useIonToast } from "@ionic/react";
 
 const Login: React.FC = () => {
@@ -96,14 +95,13 @@ const Login: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/GreenPoints/oauth-callback",
+          redirectTo: "http://localhost:8100/GreenPoints/oauth-callback",
           queryParams: { prompt: "select_account" },
         },
       });
 
       if (error) throw error;
 
-      // After redirect, Supabase session is set automatically
       setTimeout(checkGoogleUser, 2000);
     } catch (err: any) {
       setAlertMessage("Google Sign-In failed: " + (err?.message || "Unknown error"));
@@ -115,7 +113,6 @@ const Login: React.FC = () => {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return;
 
-    // Always force username modal for Google users
     setPendingUser(user);
     setShowUsernameModal(true);
   };
@@ -123,7 +120,6 @@ const Login: React.FC = () => {
   const saveNewUsername = async () => {
     if (!newUsername.trim() || !pendingUser) return;
 
-    // Overwrite or insert username in profiles
     const { error } = await supabase
       .from("profiles")
       .upsert({
@@ -157,7 +153,26 @@ const Login: React.FC = () => {
     router.push("/GreenPoints/user-dashboard");
   };
 
-  // Go to Register page
+  // ✅ Facebook OAuth Login (Supabase)
+  const loginWithFacebook = async () => {
+    try {
+      localStorage.removeItem("currentUser");
+      await supabase.auth.signOut().catch(() => {});
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "facebook",
+        options: {
+          redirectTo: "http://localhost:8100/GreenPoints/oauth-callback", 
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      setAlertMessage("Facebook Sign-In failed: " + (err?.message || "Unknown error"));
+      setShowAlert(true);
+    }
+  };
+
   const goToRegister = () => {
     router.push("/GreenPoints/register");
   };
@@ -209,29 +224,13 @@ const Login: React.FC = () => {
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Login" />
               </div>
 
-              <FacebookLogin
-                appId="741074022014246"
-                autoLoad={false}
-                useRedirect={false}
-                onSuccess={() => {
-                  setAlertMessage("Facebook login is not yet linked with Supabase.");
-                  setShowAlert(true);
-                }}
-                onFail={(err) => {
-                  console.error("Facebook Login Error:", err);
-                  setAlertMessage("Facebook login failed.");
-                  setShowAlert(true);
-                }}
-                scope="public_profile,email"
-                fields="name,email"
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-              >
+              <div onClick={loginWithFacebook} className="oauth-icon" role="button" aria-label="Login with Facebook">
                 <img
                   src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
                   alt="Facebook Login"
                   className="facebook-icon"
                 />
-              </FacebookLogin>
+              </div>
             </div>
 
             <IonText className="register-text">
