@@ -136,7 +136,7 @@ const UserDashboard: React.FC = () => {
     setTimeout(() => window.location.href = "/login", 1500);
   };
 
-  // Capture and submit tree photo
+  // Capture and submit tree photo - MODIFIED to use username-based folders
   const handleTakePhoto = async () => {
     try {
       setSubmitting(true);
@@ -171,10 +171,28 @@ const UserDashboard: React.FC = () => {
         return;
       }
 
-      const fileName = `trees/${user.id}-${Date.now()}.jpg`;
+      // Get user profile to access username for folder naming
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        setFeedback("❌ Error fetching user profile.");
+        setShowToast(true);
+        setSubmitting(false);
+        return;
+      }
+
+      // Create folder using username instead of user ID
+      const userFolder = `user-${profileData?.username || user.id}`;
+      const fileName = `${Date.now()}.jpg`;
+      const fullPath = `${userFolder}/${fileName}`;
+      
       const { error: uploadError } = await supabase.storage
         .from("tree_submissions")
-        .upload(fileName, dataURLtoBlob(image.dataUrl), {
+        .upload(fullPath, dataURLtoBlob(image.dataUrl), {
           contentType: "image/jpeg",
         });
 
@@ -187,13 +205,14 @@ const UserDashboard: React.FC = () => {
 
       const { data: publicUrlData } = supabase.storage
         .from("tree_submissions")
-        .getPublicUrl(fileName);
+        .getPublicUrl(fullPath);
 
       const { error } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
           status: "pending",
           image_url: publicUrlData.publicUrl,
+          image_path: fullPath, // Store the full path including username folder
           description: "Planted a new tree 🌱",
         },
       ]);
