@@ -476,35 +476,40 @@ const UserDashboard: React.FC = () => {
 
       {/* Bottom Navigation */}
       <IonFooter>
-        <IonTabBar slot="bottom">
-          <IonTabButton 
-            tab="home" 
-            onClick={() => setActiveTab("home")}
-            className={activeTab === "home" ? "tab-active" : ""}
-          >
-            <IonIcon icon={home} />
-            <IonLabel>Home</IonLabel>
-          </IonTabButton>
-          
-          <IonTabButton 
-            tab="rewards" 
-            onClick={handleViewRewards}
-            className={activeTab === "rewards" ? "tab-active" : ""}
-          >
-            <IonIcon icon={gift} />
-            <IonLabel>Rewards</IonLabel>
-          </IonTabButton>
-          
-          <IonTabButton 
-            tab="profile" 
-            onClick={handleViewProfile}
-            className={activeTab === "profile" ? "tab-active" : ""}
-          >
-            <IonIcon icon={person} />
-            <IonLabel>Profile</IonLabel>
-          </IonTabButton>
-        </IonTabBar>
-      </IonFooter>
+  <IonTabBar slot="bottom">
+    <IonTabButton 
+      tab="home" 
+      onClick={() => setActiveTab("home")}
+      className={activeTab === "home" ? "tab-active" : ""}
+    >
+      <IonIcon icon={home} />
+      <IonLabel>Home</IonLabel>
+    </IonTabButton>
+    
+    <IonTabButton 
+      tab="rewards" 
+      onClick={handleViewRewards}
+      className={activeTab === "rewards" ? "tab-active" : ""}
+    >
+      <IonIcon icon={gift} />
+      <IonLabel>Rewards</IonLabel>
+    </IonTabButton>
+    
+    <IonTabButton 
+      tab="profile" 
+      onClick={handleViewProfile}
+      className={activeTab === "profile" ? "tab-active" : ""}
+    >
+      <IonIcon icon={person} />
+      <IonLabel>Profile</IonLabel>
+    </IonTabButton>
+
+    {/* ✅ FIXED: Use routerLink instead of href */}
+    
+  </IonTabBar>
+</IonFooter>
+
+
     </IonPage>
   );
 };

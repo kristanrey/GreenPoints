@@ -1,0 +1,21 @@
+.leaderboard-page {
+  --ion-background-color: #f5f7fa;
+}
+
+ion-item {
+  border-radius: 12px;
+  margin: 8px;
+  --background: #ffffff;
+  --inner-padding-end: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.rank-1 {
+  border-left: 5px solid gold;
+}
+.rank-2 {
+  border-left: 5px solid silver;
+}
+.rank-3 {
+  border-left: 5px solid #cd7f32; /* bronze */
+}

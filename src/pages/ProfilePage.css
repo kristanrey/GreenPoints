@@ -1,0 +1,132 @@
+.profile-background {
+  --background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), 
+                url('/forest.jpg') no-repeat center center / cover;
+}
+
+.profile-container {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 30px 25px;
+  margin: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.avatar-container {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.profile-avatar img {
+  object-fit: cover;
+}
+
+.avatar-overlay {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(46, 204, 113, 0.8);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.avatar-container:hover .avatar-overlay {
+  background: rgba(46, 204, 113, 1);
+  transform: scale(1.1);
+}
+
+.profile-form {
+  margin-top: 20px;
+}
+
+.profile-item {
+  --background: rgba(255, 255, 255, 0.1);
+  --border-radius: 12px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-input {
+  --color: #fff;
+  --placeholder-color: #ccc;
+}
+
+.profile-info {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.profile-info.small {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.edit-button {
+  --background: rgba(46, 204, 113, 0.2);
+  --color: #2ecc71;
+  --border-radius: 8px;
+  margin: 0;
+}
+
+.profile-actions {
+  margin-top: 30px;
+}
+
+.image-button {
+  --background: rgba(255, 255, 255, 0.1);
+  --color: #fff;
+  --border-radius: 12px;
+  margin-bottom: 15px;
+  --background-hover: rgba(255, 255, 255, 0.2);
+}
+
+.logout-button {
+  --border-radius: 12px;
+  margin-bottom: 15px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .profile-container {
+    margin: 15px;
+    padding: 20px 15px;
+  }
+  
+  .profile-avatar {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .avatar-overlay {
+    width: 35px;
+    height: 35px;
+  }
+}
