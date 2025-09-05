@@ -14,7 +14,7 @@ import {
   IonBadge,
 } from "@ionic/react";
 
-import "./LeaderboardsAdmin.css";
+import "./Admin.css";
 
 const Leaderboard: React.FC = () => {
   // Dummy data (you can replace with API or Supabase later)

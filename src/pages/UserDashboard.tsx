@@ -437,20 +437,21 @@ const UserDashboard: React.FC = () => {
             
             <div className="camera-modal-buttons">
               <IonButton
-                expand="full"
-                color="success"
-                onClick={handleTakePhoto}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <IonSpinner name="crescent" />
-                ) : (
-                  <>
-                    <IonIcon icon={checkmarkDoneCircle} slot="start" />
-                    Take Photo & Submit
-                  </>
-                )}
-              </IonButton>
+  expand="full"
+  color="success"
+  href="http://localhost:8100/GreenPoints/SubmitTree"
+  disabled={submitting}
+>
+  {submitting ? (
+    <IonSpinner name="crescent" />
+  ) : (
+    <>
+      <IonIcon icon={checkmarkDoneCircle} slot="start" />
+      Take Photo & Submit
+    </>
+  )}
+</IonButton>
+
               <IonButton
                 expand="full"
                 color="medium"

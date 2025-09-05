@@ -27,7 +27,8 @@
   import SetUsername from './pages/SetUsername';
   import OAuthCallback from './pages/OAuthCallback';
   import Validators from "./pages/Validators";
-  import LeaderboardsAdmin from "./pages/LeaderboardsAdmin";
+   import Admin from "./pages/Admin";
+  
 
   setupIonicReact();
 
@@ -44,12 +45,13 @@
             <Route exact path="/GreenPoints/login" component={Login} />
             <Route exact path="/GreenPoints/user-dashboard" component={UserDashboard} />
             <Route exact path="/GreenPoints/register" component={Registration} />
-            <Route exact path="/GreenPoints/submit-tree" component={SubmitTree} />
+            <Route exact path="/GreenPoints/submittree" component={SubmitTree} />
             <Route exact path="/GreenPoints/leaderboard" component={Leaderboard} />
             <Route exact path="/GreenPoints/set-username" component={SetUsername} />
             <Route exact path="/GreenPoints/oauth-callback" component={OAuthCallback} />
             <Route exact path="/GreenPoints/validators" component={Validators} />
-            <Route exact path="/GreenPoints/leaderboardsadmin" component={LeaderboardsAdmin} />
+            <Route exact path="/GreenPoints/admin" component={Admin} />
+           
             
           
           

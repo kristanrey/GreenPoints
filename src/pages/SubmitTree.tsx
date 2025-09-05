@@ -8,6 +8,9 @@ import {
   IonToast,
   IonLoading,
   IonIcon,
+  IonItem,
+  IonLabel,
+  IonInput,
 } from "@ionic/react";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Geolocation } from "@capacitor/geolocation";
@@ -19,12 +22,19 @@ const BUCKET = "tree_submissions";
 
 const SubmitNewTree: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
   const [busy, setBusy] = useState(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const [showToast, setShowToast] = useState(false);
   const [isNative, setIsNative] = useState<boolean>(false);
   const [usingWebcam, setUsingWebcam] = useState<boolean>(false);
+
+  // new states for inputs
+  const [datePlanted, setDatePlanted] = useState<string>("");
+  const [treeName, setTreeName] = useState<string>("");
+  const [locationDesc, setLocationDesc] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -80,7 +90,10 @@ const SubmitNewTree: React.FC = () => {
         });
       }
 
-      const newCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+      const newCoords = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
       setCoords(newCoords);
       console.log("✅ GPS coords obtained:", newCoords);
       return newCoords;
@@ -133,6 +146,8 @@ const SubmitNewTree: React.FC = () => {
   const handleSubmit = async () => {
     try {
       if (!photoDataUrl) return show("Please take a photo first.");
+      if (!datePlanted || !treeName || !locationDesc)
+        return show("Please fill all fields.");
 
       // Ensure we have coords
       let currentCoords = coords;
@@ -143,7 +158,10 @@ const SubmitNewTree: React.FC = () => {
 
       setBusy(true);
 
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
       console.log("Submitting with coords:", currentCoords);
@@ -158,10 +176,12 @@ const SubmitNewTree: React.FC = () => {
       if (upErr) throw upErr;
 
       // Get public URL
-      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+      const { data: pub } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // Insert record with geo
+      // Insert record with geo + extra fields
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -171,6 +191,9 @@ const SubmitNewTree: React.FC = () => {
           longitude: currentCoords.lng,
           status: "pending",
           description: "Planted a new tree 🌱",
+          date_planted: datePlanted,
+          tree_type: treeName,
+          location_description: locationDesc,
         },
       ]);
       if (dbErr) throw dbErr;
@@ -178,6 +201,9 @@ const SubmitNewTree: React.FC = () => {
       show("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);
       setCoords(null);
+      setDatePlanted("");
+      setTreeName("");
+      setLocationDesc("");
     } catch (err: any) {
       console.error("Submit error:", err);
       show(`❌ ${err.message || "Submission failed"}`);
@@ -196,8 +222,34 @@ const SubmitNewTree: React.FC = () => {
       <IonContent className="ion-padding">
         <IonText>
           <h2>Submit New Tree</h2>
-          <p>Take a photo and we’ll attach your GPS location.</p>
+          <p>Fill out the details and take a photo of your tree.</p>
         </IonText>
+
+        {/* Input fields */}
+        <IonItem>
+          <IonLabel position="floating">Date Planted</IonLabel>
+          <IonInput
+            type="date"
+            value={datePlanted}
+            onIonChange={(e) => setDatePlanted(e.detail.value!)}
+          />
+        </IonItem>
+
+        <IonItem>
+          <IonLabel position="floating">Name of Tree</IonLabel>
+          <IonInput
+            value={treeName}
+            onIonChange={(e) => setTreeName(e.detail.value!)}
+          />
+        </IonItem>
+
+        <IonItem>
+          <IonLabel position="floating">Planted Where</IonLabel>
+          <IonInput
+            value={locationDesc}
+            onIonChange={(e) => setLocationDesc(e.detail.value!)}
+          />
+        </IonItem>
 
         {isNative && !photoDataUrl && (
           <IonButton expand="block" onClick={takePhotoMobile}>
@@ -207,8 +259,17 @@ const SubmitNewTree: React.FC = () => {
 
         {!isNative && !photoDataUrl && usingWebcam && (
           <div>
-            <video ref={videoRef} autoPlay playsInline style={{ width: "100%", borderRadius: 12 }} />
-            <IonButton expand="block" onClick={captureFromWebcam} className="ion-margin-top">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              style={{ width: "100%", borderRadius: 12 }}
+            />
+            <IonButton
+              expand="block"
+              onClick={captureFromWebcam}
+              className="ion-margin-top"
+            >
               <IonIcon icon={cameraIcon} slot="start" /> Take Photo
             </IonButton>
             <canvas ref={canvasRef} style={{ display: "none" }} />
@@ -217,8 +278,16 @@ const SubmitNewTree: React.FC = () => {
 
         {photoDataUrl && (
           <>
-            <IonImg src={photoDataUrl} style={{ borderRadius: 12, marginTop: 12 }} />
-            <IonButton expand="block" color="medium" onClick={() => setPhotoDataUrl(null)} className="ion-margin-top">
+            <IonImg
+              src={photoDataUrl}
+              style={{ borderRadius: 12, marginTop: 12 }}
+            />
+            <IonButton
+              expand="block"
+              color="medium"
+              onClick={() => setPhotoDataUrl(null)}
+              className="ion-margin-top"
+            >
               Retake Photo
             </IonButton>
           </>
@@ -233,12 +302,23 @@ const SubmitNewTree: React.FC = () => {
           </IonText>
         )}
 
-        <IonButton expand="block" color="success" onClick={handleSubmit} disabled={!photoDataUrl} className="ion-margin-top">
+        <IonButton
+          expand="block"
+          color="success"
+          onClick={handleSubmit}
+          disabled={!photoDataUrl}
+          className="ion-margin-top"
+        >
           <IonIcon icon={checkmarkCircle} slot="start" /> Submit Tree
         </IonButton>
 
         <IonLoading isOpen={busy} message="Submitting..." />
-        <IonToast isOpen={showToast} message={toastMsg} duration={2500} onDidDismiss={() => setShowToast(false)} />
+        <IonToast
+          isOpen={showToast}
+          message={toastMsg}
+          duration={2500}
+          onDidDismiss={() => setShowToast(false)}
+        />
       </IonContent>
     </IonPage>
   );
