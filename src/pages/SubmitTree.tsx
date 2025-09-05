@@ -45,12 +45,17 @@ const SubmitNewTree: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!isNative) {
-      startWebcam();
-      setUsingWebcam(true);
-    }
-    return () => stopWebcam();
-  }, [isNative]);
+  if (!Capacitor.isNativePlatform()) {
+    startWebcam();
+    setUsingWebcam(true);
+  }
+
+  // Cleanup only on unmount
+  return () => {
+    stopWebcam();
+  };
+}, []); // empty dependency → run only once
+
 
   const startWebcam = async () => {
     try {
