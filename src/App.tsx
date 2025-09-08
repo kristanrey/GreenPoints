@@ -28,7 +28,13 @@ import OAuthCallback from './pages/OAuthCallback';
 import Validators from './pages/Validators';
 import Admin from './pages/Admin';
 import Validate from './pages/Validate';
+import Profile from "./pages/EditProfile";
 import Leaderboard from './pages/Leaderboard';
+import EditProfile from './pages/EditProfile';
+import Feedback from './pages/Feedback';
+import FeedbackAdmin from './pages/FeedbackAdmin';
+
+
 
 setupIonicReact();
 
@@ -50,8 +56,14 @@ const App: React.FC = () => (
           <Route exact path="/GreenPoints/oauth-callback" component={OAuthCallback} />
            <Route exact path="/GreenPoints/validators" component={Validators} />
            <Route exact path="/GreenPoints/admin" component={Admin} />
-            <Route exact path="/GreenPoints/validate" component={Validate} />
-           <Route exact path="/GreenPoints/leaderboard" component={Leaderboard} />
+          <Route exact path="/GreenPoints/validate" component={Validate} />
+          <Route exact path="/GreenPoints/leaderboard" component={Leaderboard} />
+          <Route path="/GreenPoints/editprofile" component={EditProfile} exact />
+          <Route path="/GreenPoints/feedback" component={Feedback} exact />
+          <Route exact path="/GreenPoints/feedbackadmin" component={FeedbackAdmin} />
+          
+
+
 
         </IonRouterOutlet>
       </IonReactRouter>

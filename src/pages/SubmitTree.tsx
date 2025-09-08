@@ -1,3 +1,4 @@
+// src/pages/SubmitNewTree.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   IonPage,
@@ -17,22 +18,18 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
-  import "./SubmitNewTree.css";
-
-const BUCKET = "tree_submissions";
+import "./SubmitNewTree.css";
 
 const SubmitNewTree: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [toastMsg, setToastMsg] = useState<string>("");
   const [showToast, setShowToast] = useState(false);
   const [isNative, setIsNative] = useState<boolean>(false);
   const [usingWebcam, setUsingWebcam] = useState<boolean>(false);
 
-  // new states for inputs
+  // input states
   const [datePlanted, setDatePlanted] = useState<string>("");
   const [treeName, setTreeName] = useState<string>("");
   const [locationDesc, setLocationDesc] = useState<string>("");
@@ -46,49 +43,34 @@ const SubmitNewTree: React.FC = () => {
   }, []);
 
   useEffect(() => {
-  if (!Capacitor.isNativePlatform()) {
-    startWebcam();
-    setUsingWebcam(true);
-  }
-
-  // Cleanup only on unmount
-  return () => {
-    stopWebcam();
-  };
-}, []); // empty dependency → run only once
-
-const startWebcam = async () => {
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    streamRef.current = stream;
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-
-      try {
-        await videoRef.current.play();
-      } catch (err: any) {
-        // ✅ Fix: ignore AbortError, only log other errors
-        if (err.name !== "AbortError") {
-          console.error("Video play failed:", err);
-        }
-      }
+    if (!Capacitor.isNativePlatform()) {
+      startWebcam();
+      setUsingWebcam(true);
     }
-  } catch (err) {
-    console.error("Webcam error:", err);
-    show("Unable to access webcam. Try mobile.");
-    setUsingWebcam(false);
-  }
-};
-  
+    return () => stopWebcam();
+  }, []);
+
+  const startWebcam = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
+    } catch (err) {
+      console.error("Webcam error:", err);
+      show("Unable to access webcam. Try mobile.");
+      setUsingWebcam(false);
+    }
+  };
 
   const stopWebcam = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   };
 
-  // Get current location
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
@@ -110,10 +92,8 @@ const startWebcam = async () => {
         lng: position.coords.longitude,
       };
       setCoords(newCoords);
-      console.log("✅ GPS coords obtained:", newCoords);
       return newCoords;
     } catch (err) {
-      console.error("⚠️ Error getting location:", err);
       show("Unable to get location. Please allow location permission.");
       return null;
     }
@@ -142,8 +122,7 @@ const startWebcam = async () => {
       });
       setPhotoDataUrl(image.dataUrl ?? null);
       await getGeoCoords();
-    } catch (err) {
-      console.error("Camera error:", err);
+    } catch {
       show("Camera canceled or unavailable.");
     }
   };
@@ -164,7 +143,6 @@ const startWebcam = async () => {
       if (!datePlanted || !treeName || !locationDesc)
         return show("Please fill all fields.");
 
-      // Ensure we have coords
       let currentCoords = coords;
       if (!currentCoords) {
         currentCoords = await getGeoCoords();
@@ -179,24 +157,21 @@ const startWebcam = async () => {
       } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
-      console.log("Submitting with coords:", currentCoords);
-
       const blob = dataUrlToBlob(photoDataUrl);
-      const filename = `trees/${user.id}/${Date.now()}.jpg`;
 
-      // Upload image to storage
+      // ✅ Store inside avatars bucket → profiles/{user.id}/trees/
+      const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
+
       const { error: upErr } = await supabase.storage
-        .from(BUCKET)
+        .from("avatars")
         .upload(filename, blob, { contentType: "image/jpeg" });
+
       if (upErr) throw upErr;
 
-      // Get public URL
-      const { data: pub } = supabase.storage
-        .from(BUCKET)
-        .getPublicUrl(filename);
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // Insert record with geo + extra fields
+      // Save to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -220,7 +195,6 @@ const startWebcam = async () => {
       setTreeName("");
       setLocationDesc("");
     } catch (err: any) {
-      console.error("Submit error:", err);
       show(`❌ ${err.message || "Submission failed"}`);
     } finally {
       setBusy(false);
@@ -240,7 +214,7 @@ const startWebcam = async () => {
           <p>Fill out the details and take a photo of your tree.</p>
         </IonText>
 
-        {/* Input fields */}
+        {/* Inputs */}
         <IonItem>
           <IonLabel position="floating">Date Planted</IonLabel>
           <IonInput
@@ -266,6 +240,7 @@ const startWebcam = async () => {
           />
         </IonItem>
 
+        {/* Camera */}
         {isNative && !photoDataUrl && (
           <IonButton expand="block" onClick={takePhotoMobile}>
             <IonIcon icon={cameraIcon} slot="start" /> Open Camera

@@ -22,6 +22,7 @@ interface Player {
   rank: number;
   username: string;
   greenpoints: number;
+  avatar_url?: string | null;
 }
 
 const Leaderboard: React.FC = () => {
@@ -32,10 +33,10 @@ const Leaderboard: React.FC = () => {
     const fetchLeaderboard = async () => {
       setLoading(true);
 
-      // Fetch profiles sorted by greenpoints
+      // ✅ Fetch profiles with avatar
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, greenpoints")
+        .select("username, greenpoints, avatar_url")
         .order("greenpoints", { ascending: false });
 
       if (error) {
@@ -49,6 +50,7 @@ const Leaderboard: React.FC = () => {
           rank: index + 1,
           username: player.username || "Anonymous",
           greenpoints: player.greenpoints || 0,
+          avatar_url: player.avatar_url || null,
         }));
         setPlayers(ranked);
       }
@@ -94,10 +96,13 @@ const Leaderboard: React.FC = () => {
                       </div>
                     </IonLabel>
 
-                    {/* Avatar */}
+                    {/* ✅ Avatar from DB */}
                     <IonAvatar slot="start">
                       <img
-                        src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                        src={
+                          player.avatar_url ||
+                          "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                        }
                         alt="avatar"
                       />
                     </IonAvatar>

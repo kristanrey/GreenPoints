@@ -1,0 +1,41 @@
+/* Main content fills page */
+.profile-content {
+  display: flex;
+  justify-content: center; /* centers container horizontally */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* The actual card/container */
+.profile-container {
+  width: 100%;
+  max-width: 400px;    /* keep it neat in center */
+  margin: 0 auto;      /* auto centers on larger screens */
+  text-align: center;  /* center text inside */
+}
+
+.profile-avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.profile-avatar img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.upload-btn {
+  margin-top: 10px;
+}
+
+.profile-input {
+  margin: 10px 0;
+}
+
+.save-btn {
+  margin-top: 20px;
+}

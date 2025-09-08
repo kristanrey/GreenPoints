@@ -27,6 +27,7 @@
     checkmarkDoneCircle,
     podium,
     logOut,
+    chatbox,
   } from "ionicons/icons";
   import { useEffect, useState } from "react";
   import { supabase } from "../utils/supabaseClient";
@@ -363,6 +364,16 @@
               <IonIcon icon={podium} slot="start" />
               View Leaderboard
             </IonButton>
+             
+             <IonButton
+              expand="block"
+              className="dashboard-button"
+              color="primary"
+              routerLink="/feedback"
+            >
+              <IonIcon icon={chatbox} slot="start" />
+              Feedback
+            </IonButton>
           </div>
 
           {/* Tabs */}
@@ -492,14 +503,15 @@
               <IonLabel>Rewards</IonLabel>
             </IonTabButton>
 
-            <IonTabButton
-              tab="profile"
-              onClick={handleViewProfile}
-              className={activeTab === "profile" ? "tab-active" : ""}
-            >
-              <IonIcon icon={person} />
-              <IonLabel>Profile</IonLabel>
-            </IonTabButton>
+           <IonTabButton
+  tab="profile"
+  href="/GreenPoints/EditProfile"   // 👈 use href to navigate
+  className={activeTab === "profile" ? "tab-active" : ""}
+>
+  <IonIcon icon={person} />
+  <IonLabel>Profile</IonLabel>
+</IonTabButton>
+
           </IonTabBar>
         </IonFooter>
       </IonPage>

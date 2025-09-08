@@ -79,7 +79,7 @@ const AdminDashboard: React.FC = () => {
 
           <ul className="side-menu top">
             <li>
-              <a href="GreenPoints/Leaderboards-Admin">
+              <a href="GreenPoints/leaderboard">
                 <i className="bx bxs-shopping-bag-alt"></i>
                 <span className="text">Leaderboards</span>
               </a>
