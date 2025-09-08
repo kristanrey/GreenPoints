@@ -12,7 +12,10 @@ const OAuthCallback: React.FC = () => {
     const handleAuth = async () => {
       try {
         // ✅ Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (!session?.user) {
           router.push("/GreenPoints/login");
           return;
@@ -20,11 +23,11 @@ const OAuthCallback: React.FC = () => {
 
         const user = session.user;
 
-        // ✅ Fetch profile from DB
+        // ✅ Fetch profile by user_id
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", user.id)
+          .eq("user_id", user.id)
           .single();
 
         if (error && error.code !== "PGRST116") {
@@ -33,17 +36,23 @@ const OAuthCallback: React.FC = () => {
 
         // ✅ If no profile row, insert it
         if (!profile) {
-          await supabase.from("profiles").insert([
+          const { error: insertError } = await supabase.from("profiles").insert([
             {
-              id: user.id,
+              user_id: user.id,
               email: user.email,
-              username: null, // will be set later
-              role: "User",
+              username: null, // force user to set later
+              role: "user",
               trees_planted: 0,
               greenpoints: 0,
             },
           ]);
-          // force username setup
+
+          if (insertError) {
+            console.error("Profile insert error:", insertError);
+            router.push("/GreenPoints/login");
+            return;
+          }
+
           router.push("/GreenPoints/set-username");
           return;
         }
@@ -54,21 +63,21 @@ const OAuthCallback: React.FC = () => {
           return;
         }
 
-        // ✅ Always refresh localStorage with fresh data
+        // ✅ Save user to localStorage
         localStorage.setItem(
           "currentUser",
           JSON.stringify({
             id: user.id,
             name: profile.username,
             email: user.email,
-            role: profile.role || "User",
+            role: profile.role || "user",
             treesPlanted: profile.trees_planted || 0,
             greenpoints: profile.greenpoints || 0,
           })
         );
 
         // ✅ Go to dashboard
-        router.push("/GreenPoints/user-dashboard");
+        router.push("/GreenPoints/userdashboard");
       } catch (err) {
         console.error("OAuth handling error:", err);
         router.push("/GreenPoints/login");

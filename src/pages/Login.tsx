@@ -12,7 +12,11 @@ import {
   IonIcon,
   IonModal,
 } from "@ionic/react";
-import { mailOutline, lockClosedOutline, personCircleOutline } from "ionicons/icons";
+import {
+  mailOutline,
+  lockClosedOutline,
+  personCircleOutline,
+} from "ionicons/icons";
 import { useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { useIonRouter, useIonToast } from "@ionic/react";
@@ -25,7 +29,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // For username modal after Google login
+  // For username modal after OAuth login
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [pendingUser, setPendingUser] = useState<any>(null);
@@ -45,8 +49,12 @@ const Login: React.FC = () => {
 
     if (authError) {
       if (authError.message.toLowerCase().includes("email not confirmed")) {
-        setAlertMessage("Please confirm your email before logging in. Check your inbox.");
-      } else if (authError.message.toLowerCase().includes("invalid login credentials")) {
+        setAlertMessage(
+          "Please confirm your email before logging in. Check your inbox."
+        );
+      } else if (
+        authError.message.toLowerCase().includes("invalid login credentials")
+      ) {
         setAlertMessage("Invalid email or password.");
       } else {
         setAlertMessage(authError.message);
@@ -59,7 +67,7 @@ const Login: React.FC = () => {
     const { data: fetchedProfile } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", authData.user.id)
+      .eq("user_id", authData.user.id) // ✅ use user_id
       .single();
 
     if (fetchedProfile) profileData = fetchedProfile;
@@ -83,7 +91,7 @@ const Login: React.FC = () => {
       color: "success",
     });
 
-    router.push("/GreenPoints/user-dashboard");
+    router.push("/GreenPoints/userdashboard");
   };
 
   // Google OAuth Login
@@ -102,31 +110,89 @@ const Login: React.FC = () => {
 
       if (error) throw error;
 
-      setTimeout(checkGoogleUser, 2000);
+      setTimeout(checkOAuthUser, 2000);
     } catch (err: any) {
-      setAlertMessage("Google Sign-In failed: " + (err?.message || "Unknown error"));
+      setAlertMessage(
+        "Google Sign-In failed: " + (err?.message || "Unknown error")
+      );
       setShowAlert(true);
     }
   };
 
-  const checkGoogleUser = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return;
+  // Facebook OAuth Login
+  const loginWithFacebook = async () => {
+    try {
+      localStorage.removeItem("currentUser");
+      await supabase.auth.signOut().catch(() => {});
 
-    setPendingUser(user);
-    setShowUsernameModal(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "facebook",
+        options: {
+          redirectTo: "http://localhost:8100/GreenPoints/oauth-callback",
+        },
+      });
+
+      if (error) throw error;
+
+      setTimeout(checkOAuthUser, 2000);
+    } catch (err: any) {
+      setAlertMessage(
+        "Facebook Sign-In failed: " + (err?.message || "Unknown error")
+      );
+      setShowAlert(true);
+    }
   };
 
+  // Check if OAuth user already has a profile
+  const checkOAuthUser = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) return;
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id) // ✅ use user_id
+      .single();
+
+    if (profileError && profileError.code !== "PGRST116") {
+      console.error("Error fetching profile:", profileError.message);
+      return;
+    }
+
+    if (profile && profile.username) {
+      // ✅ Already has profile → go straight to dashboard
+      localStorage.setItem(
+        "currentUser",
+        JSON.stringify({
+          id: user.id,
+          name: profile.username,
+          email: user.email,
+          role: profile.role || "User",
+          treesPlanted: profile.trees_planted || 0,
+          greenpoints: profile.greenpoints || 0,
+        })
+      );
+
+      router.push("/GreenPoints/user-dashboard");
+    } else {
+      // ❌ No profile or no username → show modal
+      setPendingUser(user);
+      setShowUsernameModal(true);
+    }
+  };
+
+  // Save new username for OAuth users
   const saveNewUsername = async () => {
     if (!newUsername.trim() || !pendingUser) return;
 
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({
-        id: pendingUser.id,
-        email: pendingUser.email,
-        username: newUsername.trim(),
-      });
+    const { error } = await supabase.from("profiles").upsert({
+      user_id: pendingUser.id, // ✅ correct column
+      email: pendingUser.email,
+      username: newUsername.trim(),
+    });
 
     if (error) {
       setAlertMessage("Failed to save username: " + error.message);
@@ -151,26 +217,6 @@ const Login: React.FC = () => {
     setPendingUser(null);
 
     router.push("/GreenPoints/user-dashboard");
-  };
-
-  // ✅ Facebook OAuth Login (Supabase)
-  const loginWithFacebook = async () => {
-    try {
-      localStorage.removeItem("currentUser");
-      await supabase.auth.signOut().catch(() => {});
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "facebook",
-        options: {
-          redirectTo: "http://localhost:8100/GreenPoints/oauth-callback", 
-        },
-      });
-
-      if (error) throw error;
-    } catch (err: any) {
-      setAlertMessage("Facebook Sign-In failed: " + (err?.message || "Unknown error"));
-      setShowAlert(true);
-    }
   };
 
   const goToRegister = () => {
@@ -220,11 +266,24 @@ const Login: React.FC = () => {
 
             {/* OAuth buttons */}
             <div className="oauth-buttons">
-              <div onClick={loginWithGoogle} className="oauth-icon" role="button" aria-label="Login with Google">
-                <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Login" />
+              <div
+                onClick={loginWithGoogle}
+                className="oauth-icon"
+                role="button"
+                aria-label="Login with Google"
+              >
+                <img
+                  src="https://developers.google.com/identity/images/g-logo.png"
+                  alt="Google Login"
+                />
               </div>
 
-              <div onClick={loginWithFacebook} className="oauth-icon" role="button" aria-label="Login with Facebook">
+              <div
+                onClick={loginWithFacebook}
+                className="oauth-icon"
+                role="button"
+                aria-label="Login with Facebook"
+              >
                 <img
                   src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
                   alt="Facebook Login"
@@ -235,7 +294,9 @@ const Login: React.FC = () => {
 
             <IonText className="register-text">
               Don&apos;t have an account?{" "}
-              <span onClick={goToRegister} className="register-link">Sign up</span>
+              <span onClick={goToRegister} className="register-link">
+                Sign up
+              </span>
             </IonText>
 
             {/* Alerts */}
@@ -246,8 +307,11 @@ const Login: React.FC = () => {
               onDidDismiss={() => setShowAlert(false)}
             />
 
-            {/* Username Modal for Google users */}
-            <IonModal isOpen={showUsernameModal} onDidDismiss={() => setShowUsernameModal(false)}>
+            {/* Username Modal for OAuth users */}
+            <IonModal
+              isOpen={showUsernameModal}
+              onDidDismiss={() => setShowUsernameModal(false)}
+            >
               <IonContent className="ion-padding">
                 <h2>Choose a Username</h2>
                 <IonItem>
@@ -258,7 +322,11 @@ const Login: React.FC = () => {
                     onIonChange={(e) => setNewUsername(e.detail.value!)}
                   />
                 </IonItem>
-                <IonButton expand="block" onClick={saveNewUsername} style={{ marginTop: 20 }}>
+                <IonButton
+                  expand="block"
+                  onClick={saveNewUsername}
+                  style={{ marginTop: 20 }}
+                >
                   Save Username
                 </IonButton>
               </IonContent>

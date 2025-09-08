@@ -17,6 +17,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
+  import "./SubmitNewTree.css";
 
 const BUCKET = "tree_submissions";
 

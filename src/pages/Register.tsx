@@ -65,14 +65,15 @@ const Register: React.FC = () => {
     const { error: insertError } = await supabase
       .from("profiles")
       .insert([
-        {
-          id: authData.user?.id, // match auth user id with profile
-          username,
-          email,
-          role,
-          trees_planted: 0
-        },
-      ]);
+  {
+    user_id: authData.user?.id,   // match your table column
+    username,
+    email,
+    role,
+    trees_planted: 0,
+    greenpoints: 0,               // since it's in your table
+  },
+])
 
     if (insertError) throw insertError;
 

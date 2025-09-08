@@ -1,0 +1,109 @@
+/* Background styling */
+.leaderboard-bg {
+  --background: linear-gradient(135deg, #1f0036, #4b004b, #ff007f);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Container */
+.leaderboard-container {
+  width: 100%;
+  max-width: 500px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* Card */
+.leaderboard-card {
+  border-radius: 20px;
+  background: linear-gradient(135deg, #2a003d, #3d004d);
+  box-shadow: 0 4px 20px rgba(255, 0, 150, 0.5);
+  color: #fff;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Title */
+.leaderboard-title {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 15px 0;
+  letter-spacing: 2px;
+}
+
+/* List items */
+.leaderboard-item {
+  --background: transparent;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 8px;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.leaderboard-item:hover {
+  background: rgba(255, 0, 127, 0.15);
+  transform: scale(1.02);
+}
+
+/* Rank styling */
+.rank-section {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.rank-icon {
+  font-size: 1.5rem;
+}
+
+.rank-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffccff;
+}
+
+/* Avatar */
+ion-avatar {
+  margin: 0 10px;
+  border: 2px solid #ff007f;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* Username styling */
+.name-label {
+  font-weight: bold;
+  font-size: 1.1rem;
+  flex: 1;
+  text-align: left;
+  color: #fff;
+  letter-spacing: 0.5px;
+
+  /* Neon glow */
+  text-shadow: 0 0 4px #ff4da6, 0 0 8px #ff1a75;
+}
+
+/* Score styling */
+.score-text {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #201020;
+  
+}
+
+/* Special backgrounds for top 3 */
+.leaderboard-item:nth-child(1) {
+  background: rgba(255, 215, 0, 0.1);
+}
+.leaderboard-item:nth-child(2) {
+  background: rgba(192, 192, 192, 0.1);
+}
+.leaderboard-item:nth-child(3) {
+  background: rgba(205, 127, 50, 0.1);
+}

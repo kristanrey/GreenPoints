@@ -2,110 +2,119 @@
 import {
   IonPage,
   IonContent,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
   IonList,
   IonItem,
   IonLabel,
   IonAvatar,
-  IonButtons,
-  IonBackButton,
+  IonText,
+  IonIcon,
   IonSpinner,
 } from "@ionic/react";
+import { trophy, medal } from "ionicons/icons";
 import { useEffect, useState } from "react";
-import { supabase } from "../utils/supabaseClient"; // make sure path is correct
+import { supabase } from "../utils/supabaseClient";
+import "./Leaderboard.css";
 
-interface LeaderboardEntry {
-  id: string;
+interface Player {
+  rank: number;
   username: string;
-  trees_planted: number;
   greenpoints: number;
-  avatar_url?: string;
 }
 
 const Leaderboard: React.FC = () => {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch leaderboard from Supabase
-  const fetchLeaderboard = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles") // change table name if needed
-      .select("id, username, trees_planted, greenpoints, avatar_url")
-      .order("greenpoints", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching leaderboard:", error);
-    } else {
-      setLeaderboard(data || []);
-    }
-    setLoading(false);
-  };
-
-  // Subscribe to real-time leaderboard updates
-  const subscribeToLeaderboard = () => {
-    const channel = supabase
-      .channel("leaderboard-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" }, // adjust table if needed
-        () => {
-          fetchLeaderboard(); // refresh when change happens
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
   useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoading(true);
+
+      // Fetch profiles sorted by greenpoints
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, greenpoints")
+        .order("greenpoints", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching leaderboard:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        const ranked = data.map((player, index) => ({
+          rank: index + 1,
+          username: player.username || "Anonymous",
+          greenpoints: player.greenpoints || 0,
+        }));
+        setPlayers(ranked);
+      }
+
+      setLoading(false);
+    };
+
     fetchLeaderboard();
-    const unsubscribe = subscribeToLeaderboard();
-    return unsubscribe;
   }, []);
 
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar color="success">
-          <IonButtons slot="start">
-            <IonBackButton defaultHref="/dashboard" />
-          </IonButtons>
-          <IonTitle>Leaderboard</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent>
-        {loading ? (
-          <IonSpinner style={{ display: "block", margin: "20px auto" }} />
-        ) : (
-          <IonList>
-            {leaderboard.map((entry, index) => (
-              <IonItem key={entry.id}>
-                <IonAvatar slot="start">
-                  <img
-                    src={
-                      entry.avatar_url ||
-                      `https://i.pravatar.cc/150?img=${index + 1}`
-                    }
-                    alt={entry.username}
-                  />
-                </IonAvatar>
-                <IonLabel>
-                  <h2>
-                    {index + 1}. {entry.username}
-                  </h2>
-                  <p>
-                    🌳 {entry.trees_planted} trees | 🟢 {entry.greenpoints} GP
-                  </p>
-                </IonLabel>
-              </IonItem>
-            ))}
-          </IonList>
-        )}
+      <IonContent className="leaderboard-bg" fullscreen>
+        <div className="leaderboard-container">
+          <IonCard className="leaderboard-card">
+            <IonCardHeader>
+              <IonCardTitle className="leaderboard-title">LEADERBOARD</IonCardTitle>
+            </IonCardHeader>
+
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <IonSpinner name="crescent" />
+              </div>
+            ) : (
+              <IonList>
+                {players.map((player, index) => (
+                  <IonItem key={index} className="leaderboard-item">
+                    {/* Rank section */}
+                    <IonLabel>
+                      <div className="rank-section">
+                        {player.rank === 1 && (
+                          <IonIcon icon={trophy} color="warning" className="rank-icon" />
+                        )}
+                        {player.rank === 2 && (
+                          <IonIcon icon={medal} color="medium" className="rank-icon" />
+                        )}
+                        {player.rank === 3 && (
+                          <IonIcon icon={medal} color="tertiary" className="rank-icon" />
+                        )}
+                        {player.rank > 3 && (
+                          <IonText className="rank-text">{player.rank}</IonText>
+                        )}
+                      </div>
+                    </IonLabel>
+
+                    {/* Avatar */}
+                    <IonAvatar slot="start">
+                      <img
+                        src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                        alt="avatar"
+                      />
+                    </IonAvatar>
+
+                    {/* Username */}
+                    <IonLabel className="name-label">{player.username}</IonLabel>
+
+                    {/* Score */}
+                    <IonText slot="end" className="score-text">
+                      {player.greenpoints}
+                    </IonText>
+                  </IonItem>
+                ))}
+              </IonList>
+            )}
+          </IonCard>
+        </div>
       </IonContent>
     </IonPage>
   );

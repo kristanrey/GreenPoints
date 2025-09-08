@@ -16,7 +16,7 @@ import {
   IonLabel,
   IonIcon,
 } from "@ionic/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHistory } from "react-router";
 import { supabase } from "../utils/supabaseClient";
 import { checkmarkCircle, closeCircle, person } from "ionicons/icons";
@@ -28,9 +28,43 @@ const SetupUsername: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
   const history = useHistory();
 
-  // Check if username is available
+  // ✅ Auto-skip if user already has a username
+  useEffect(() => {
+    const checkExistingUsername = async () => {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        setLoading(false);
+        return;
+      }
+
+      const { user } = authData;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        setLoading(false);
+        return;
+      }
+
+      if (profile && profile.username) {
+        // ✅ Redirect immediately if username exists
+        history.replace("/userdashboard");
+      } else {
+        setLoading(false);
+      }
+    };
+
+    checkExistingUsername();
+  }, [history]);
+
+  // ✅ Check if username is available
   const checkUsernameAvailability = async (username: string) => {
     if (!username || username.length < 3) {
       setIsAvailable(null);
@@ -38,7 +72,7 @@ const SetupUsername: React.FC = () => {
     }
 
     setIsChecking(true);
-    
+
     const { data, error } = await supabase
       .from("profiles")
       .select("username")
@@ -51,18 +85,21 @@ const SetupUsername: React.FC = () => {
       setShowToast(true);
       setIsAvailable(null);
     } else {
-      setIsAvailable(!data); // If no data returned, username is available
+      setIsAvailable(!data);
     }
-    
+
     setIsChecking(false);
   };
 
+  // Debounce input check
+  let debounceTimer: NodeJS.Timeout;
   const handleInputChange = (value: string) => {
     setUsername(value);
-    // Check availability after a short delay to avoid excessive API calls
-    setTimeout(() => checkUsernameAvailability(value), 500);
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => checkUsernameAvailability(value), 500);
   };
 
+  // ✅ Save username
   const handleSaveUsername = async () => {
     if (!username) {
       setFeedback("❌ Please enter a username");
@@ -76,48 +113,60 @@ const SetupUsername: React.FC = () => {
       return;
     }
 
-    // Check availability one more time before saving
-    const { data } = await supabase
+    // Double check availability
+    const { data: existingUser } = await supabase
       .from("profiles")
       .select("username")
       .eq("username", username.toLowerCase())
       .maybeSingle();
 
-    if (data) {
+    if (existingUser) {
       setFeedback("❌ This username is already taken");
       setShowToast(true);
       setShowModal(true);
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) {
       setFeedback("❌ No logged in user found.");
       setShowToast(true);
       return;
     }
 
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
-      email: user.email,
-      username: username,
-      role: "user",
-    });
+    const { user } = authData;
 
-    if (error) {
-      setFeedback("❌ Failed to save username: " + error.message);
+    const { error: upsertError } = await supabase.from("profiles").upsert(
+      {
+        user_id: user.id,
+        email: user.email,
+        username: username.toLowerCase(),
+        role: "user",
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (upsertError) {
+      console.error("Upsert error:", upsertError);
+      setFeedback("❌ Failed to save username: " + upsertError.message);
       setShowToast(true);
       return;
     }
 
-    // Success → redirect to dashboard
-    setFeedback("✅ Username saved successfully!");
-    setShowToast(true);
-    setTimeout(() => history.replace("/userdashboard"), 1000);
+    // ✅ Redirect instantly after saving
+    history.replace("/userdashboard");
   };
+
+  if (loading) {
+    return (
+      <IonPage>
+        <IonContent className="ion-padding ion-text-center">
+          <IonSpinner name="crescent" />
+          <p>Loading...</p>
+        </IonContent>
+      </IonPage>
+    );
+  }
 
   return (
     <IonPage>
@@ -165,8 +214,8 @@ const SetupUsername: React.FC = () => {
             )}
           </div>
 
-          <IonButton 
-            expand="block" 
+          <IonButton
+            expand="block"
             onClick={handleSaveUsername}
             disabled={!username || username.length < 3 || isAvailable === false}
           >
@@ -192,7 +241,6 @@ const SetupUsername: React.FC = () => {
           onDidDismiss={() => setShowToast(false)}
         />
 
-        {/* Username Taken Modal */}
         <IonModal isOpen={showModal} onDidDismiss={() => setShowModal(false)}>
           <IonHeader>
             <IonToolbar>
@@ -206,8 +254,10 @@ const SetupUsername: React.FC = () => {
             <div className="modal-content">
               <IonIcon icon={closeCircle} color="danger" size="large" />
               <h2>Username Not Available</h2>
-              <p>The username <strong>"{username}"</strong> is already taken. Please choose a different one.</p>
-              
+              <p>
+                The username <strong>"{username}"</strong> is already taken.
+                Please choose a different one.
+              </p>
               <div className="suggestions">
                 <h3>Suggestions:</h3>
                 <ul>
@@ -216,7 +266,6 @@ const SetupUsername: React.FC = () => {
                   <li>Try a variation of your name</li>
                 </ul>
               </div>
-              
               <IonButton expand="block" onClick={() => setShowModal(false)}>
                 Try Another Username
               </IonButton>

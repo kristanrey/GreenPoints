@@ -277,7 +277,7 @@ main .btn-download:hover {
 }
 
 .brand-logo {
-  width: 100px;   /* adjust size as needed */
+  width: 50px;   /* adjust size as needed */
   height: 100px;
   object-fit: cover;
   border-radius: 1%; /* optional if you want it circular */
