@@ -33,6 +33,7 @@ import Leaderboard from './pages/Leaderboard';
 import EditProfile from './pages/EditProfile';
 import Feedback from './pages/Feedback';
 import FeedbackAdmin from './pages/FeedbackAdmin';
+import MonitorStatus from './pages/MonitorStatus';
 
 
 
@@ -61,6 +62,7 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/editprofile" component={EditProfile} exact />
           <Route path="/GreenPoints/feedback" component={Feedback} exact />
           <Route exact path="/GreenPoints/feedbackadmin" component={FeedbackAdmin} />
+          <Route exact path="/GreenPoints/monitorstatus" component={MonitorStatus} />
           
 
 
