@@ -10,11 +10,15 @@ import {
   IonToast,
   IonSpinner,
   IonImg,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardContent,
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
 
 interface Submission {
-  submission_id: number; // FIXED: should be number (serial int)
+  submission_id: number;
   user_id: string;
   image_url: string;
   tree_type: string;
@@ -23,6 +27,7 @@ interface Submission {
   latitude: number;
   longitude: number;
   status: string;
+  exif_metadata?: any;
 }
 
 const ValidatePage: React.FC = () => {
@@ -31,109 +36,61 @@ const ValidatePage: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
 
-  // Fetch pending submissions
+  // Fetch submissions
   const fetchSubmissions = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("tree_submissions")
-        .select("*")
-        .eq("status", "pending")
-        .order("date_planted", { ascending: false });
+    const { data, error } = await supabase
+      .from("tree_submissions")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Fetch submissions error:", error);
-        setToastMsg(`Error fetching submissions: ${error.message}`);
-        setShowToast(true);
-      } else {
-        setSubmissions(data as Submission[]);
-      }
-    } catch (err: any) {
-      console.error("Unexpected fetch error:", err);
-      setToastMsg(`Unexpected error: ${err.message || err}`);
+    if (error) {
+      console.error(error);
+      setToastMsg(`Error fetching: ${error.message}`);
       setShowToast(true);
-    } finally {
-      setLoading(false);
+    } else {
+      setSubmissions(data as Submission[]);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchSubmissions();
   }, []);
 
-  // Approve or Reject submission
   const handleAction = async (
     submission_id: number,
     status: "approved" | "rejected"
   ) => {
     try {
-      console.log("Attempting action:", { submission_id, status });
+      const update = await supabase
+        .from("tree_submissions")
+        .update({ status, greenpoints: status === "approved" ? 30 : 0 })
+        .eq("submission_id", submission_id);
 
-      const submission = submissions.find((s) => s.submission_id === submission_id);
-      if (!submission) {
-        setToastMsg("❌ Submission not found");
-        setShowToast(true);
-        return;
-      }
+      if (update.error) throw update.error;
 
-      if (status === "approved") {
-        // 1️⃣ Update tree_submissions (set approved + 30 points)
-        const { error: updateError } = await supabase
-          .from("tree_submissions")
-          .update({ status: "approved", greenpoints: 30 })
-          .eq("submission_id", submission_id);
-
-        if (updateError) {
-          console.error("Update error:", updateError);
-          setToastMsg(`❌ Action failed: ${updateError.message}`);
-          setShowToast(true);
-          return;
-        }
-
-        // 2️⃣ Increment user profile totals
-        const { error: profileError } = await supabase.rpc(
-          "increment_profile_stats",
-          {
-            p_user_id: submission.user_id,
-            p_points: 30,
-            p_trees: 1,
-          }
-        );
-
-        if (profileError) {
-          console.error("Profile update error:", profileError);
-          setToastMsg(`❌ Failed to update profile: ${profileError.message}`);
-          setShowToast(true);
-          return;
-        }
-
-        setToastMsg("✅ Approved (+30 GreenPoints)");
-      } else {
-        // Rejected → mark submission as rejected with 0 points
-        const { error: rejectError } = await supabase
-          .from("tree_submissions")
-          .update({ status: "rejected", greenpoints: 0 })
-          .eq("submission_id", submission_id);
-
-        if (rejectError) {
-          console.error("Reject error:", rejectError);
-          setToastMsg(`❌ Action failed: ${rejectError.message}`);
-          setShowToast(true);
-          return;
-        }
-
-        setToastMsg("❌ Rejected");
-      }
-
+      setToastMsg(
+        status === "approved" ? "✅ Approved (+30 GreenPoints)" : "❌ Rejected"
+      );
       setShowToast(true);
-
-      // Refresh list
       fetchSubmissions();
     } catch (err: any) {
-      console.error("Unexpected error in handleAction:", err);
-      setToastMsg(`❌ Unexpected error: ${err.message || err}`);
+      setToastMsg(`Error: ${err.message}`);
       setShowToast(true);
     }
+  };
+
+  // Helper: convert decimal to DMS
+  const toDMS = (deg: number, type: "lat" | "lon") => {
+    if (!deg) return "N/A";
+    const d = Math.floor(Math.abs(deg));
+    const m = Math.floor((Math.abs(deg) - d) * 60);
+    const s = ((Math.abs(deg) - d - m / 60) * 3600).toFixed(2);
+    const dir =
+      type === "lat" ? (deg >= 0 ? "N" : "S") : deg >= 0 ? "E" : "W";
+    return `${d}° ${m}' ${s}" ${dir}`;
   };
 
   return (
@@ -153,67 +110,101 @@ const ValidatePage: React.FC = () => {
         ) : submissions.length === 0 ? (
           <p>No pending submissions 🎉</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                textAlign: "left",
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#f1f1f1" }}>
-                  <th style={{ padding: "8px" }}>Photo</th>
-                  <th style={{ padding: "8px" }}>Tree</th>
-                  <th style={{ padding: "8px" }}>Date Planted</th>
-                  <th style={{ padding: "8px" }}>Location</th>
-                  <th style={{ padding: "8px" }}>Coordinates</th>
-                  <th style={{ padding: "8px" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((sub) => (
-                  <tr key={sub.submission_id} style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "8px" }}>
-                      <IonImg
-                        src={sub.image_url}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          objectFit: "cover",
-                          borderRadius: 8,
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: "8px" }}>{sub.tree_type}</td>
-                    <td style={{ padding: "8px" }}>{sub.date_planted}</td>
-                    <td style={{ padding: "8px" }}>{sub.location_description}</td>
-                    <td style={{ padding: "8px" }}>
-                      {sub.latitude.toFixed(5)}, {sub.longitude.toFixed(5)}
-                    </td>
-                    <td style={{ padding: "8px" }}>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <IonButton
-                          size="small"
-                          color="success"
-                          onClick={() => handleAction(sub.submission_id, "approved")}
-                        >
-                          Approve
-                        </IonButton>
-                        <IonButton
-                          size="small"
-                          color="danger"
-                          onClick={() => handleAction(sub.submission_id, "rejected")}
-                        >
-                          Reject
-                        </IonButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          submissions.map((sub) => (
+            <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
+              <IonCardHeader>
+                <IonCardTitle>Tree Submission</IonCardTitle>
+              </IonCardHeader>
+              <IonCardContent>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "16px",
+                    alignItems: "start",
+                  }}
+                >
+                  {/* Left: Tree photo + buttons */}
+                  <div style={{ textAlign: "center" }}>
+                    <IonImg
+                      src={sub.image_url}
+                      style={{
+                        width: "100%",
+                        borderRadius: "8px",
+                        marginBottom: "8px",
+                      }}
+                    />
+                    <p>Planted a new tree</p>
+                    <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                      <IonButton
+                        color="success"
+                        onClick={() => handleAction(sub.submission_id, "approved")}
+                      >
+                        Approve
+                      </IonButton>
+                      <IonButton
+                        color="medium"
+                        onClick={() => handleAction(sub.submission_id, "rejected")}
+                      >
+                        Reject
+                      </IonButton>
+                    </div>
+                  </div>
+
+                  {/* Right: EXIF Metadata */}
+                  <div
+                    style={{
+                      border: "1px solid #ddd",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  >
+                    <h4 style={{ marginBottom: "12px" }}>EXIF Metadata</h4>
+                    <table style={{ width: "100%", fontSize: "14px" }}>
+                      <tbody>
+                        <tr>
+                          <td><b>Date taken</b></td>
+                          <td>
+                            {sub.exif_metadata?.DateTimeOriginal ||
+                              sub.date_planted}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>Device</b></td>
+                          <td>
+                            {sub.exif_metadata?.Make}{" "}
+                            {sub.exif_metadata?.Model}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>GPS</b></td>
+                          <td>
+                            {sub.latitude}, {sub.longitude}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>Orientation</b></td>
+                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Exif version</b></td>
+                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Latitude</b></td>
+                          <td>{toDMS(sub.latitude, "lat")}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Longitude</b></td>
+                          <td>{toDMS(sub.longitude, "lon")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </IonCardContent>
+            </IonCard>
+          ))
         )}
 
         <IonToast

@@ -18,6 +18,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
+import exifr from "exifr"; // ✅ EXIF parser
 import "./SubmitNewTree.css";
 
 const SubmitNewTree: React.FC = () => {
@@ -33,6 +34,8 @@ const SubmitNewTree: React.FC = () => {
   const [datePlanted, setDatePlanted] = useState<string>("");
   const [treeName, setTreeName] = useState<string>("");
   const [locationDesc, setLocationDesc] = useState<string>("");
+
+  const [exifData, setExifData] = useState<any>(null); // ✅ Store EXIF info
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -99,6 +102,20 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
+  const extractExif = async (blob: Blob) => {
+    try {
+      const metadata = await exifr.parse(blob, { gps: true });
+      if (metadata) {
+        setExifData(metadata);
+        if (metadata.latitude && metadata.longitude) {
+          setCoords({ lat: metadata.latitude, lng: metadata.longitude });
+        }
+      }
+    } catch (err) {
+      console.warn("No EXIF metadata found:", err);
+    }
+  };
+
   const captureFromWebcam = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const v = videoRef.current;
@@ -108,7 +125,11 @@ const SubmitNewTree: React.FC = () => {
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(v, 0, 0);
-    setPhotoDataUrl(c.toDataURL("image/jpeg", 0.9));
+    const dataUrl = c.toDataURL("image/jpeg", 0.9);
+    setPhotoDataUrl(dataUrl);
+
+    const blob = dataUrlToBlob(dataUrl);
+    await extractExif(blob); // ✅ Extract EXIF
     await getGeoCoords();
   };
 
@@ -121,6 +142,11 @@ const SubmitNewTree: React.FC = () => {
         correctOrientation: true,
       });
       setPhotoDataUrl(image.dataUrl ?? null);
+
+      if (image.dataUrl) {
+        const blob = dataUrlToBlob(image.dataUrl);
+        await extractExif(blob); // ✅ Extract EXIF
+      }
       await getGeoCoords();
     } catch {
       show("Camera canceled or unavailable.");
@@ -184,6 +210,7 @@ const SubmitNewTree: React.FC = () => {
           date_planted: datePlanted,
           tree_type: treeName,
           location_description: locationDesc,
+          exif_metadata: exifData ? JSON.stringify(exifData) : null, // ✅ Store EXIF in DB
         },
       ]);
       if (dbErr) throw dbErr;
@@ -194,6 +221,7 @@ const SubmitNewTree: React.FC = () => {
       setDatePlanted("");
       setTreeName("");
       setLocationDesc("");
+      setExifData(null);
     } catch (err: any) {
       show(`❌ ${err.message || "Submission failed"}`);
     } finally {
@@ -288,6 +316,17 @@ const SubmitNewTree: React.FC = () => {
             <p className="ion-margin-top">
               📍 <strong>Lat:</strong> {coords.lat.toFixed(6)} &nbsp;&nbsp;
               <strong>Lng:</strong> {coords.lng.toFixed(6)}
+            </p>
+          </IonText>
+        )}
+
+        {exifData && (
+          <IonText>
+            <p className="ion-margin-top">
+              📷 <strong>Camera:</strong> {exifData.Make || "Unknown"}{" "}
+              {exifData.Model || ""} <br />
+              🕒 <strong>Taken:</strong>{" "}
+              {exifData.DateTimeOriginal || "Not available"}
             </p>
           </IonText>
         )}

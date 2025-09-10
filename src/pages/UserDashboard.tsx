@@ -332,17 +332,17 @@
               Monitor Status
             </IonButton>
           
+<IonButton
+  expand="block"
+  className="dashboard-button"
+  color="success"
+  routerLink="/GreenPoints/submittree"
+  disabled={submitting}
+>
+  <IonIcon icon={camera} slot="start" />
+  Submit New Tree
+</IonButton>
 
-            <IonButton
-    expand="block"
-    className="dashboard-button"
-    color="success"
-    href="/GreenPoints/submittree"
-    disabled={submitting}
-  >
-    <IonIcon icon={camera} slot="start" />
-    Submit New Tree
-  </IonButton>
 
 
             <IonButton
