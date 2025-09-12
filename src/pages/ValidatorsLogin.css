@@ -86,7 +86,7 @@ ion-button {
 
 /* Optional: make switch link look like text */
 ion-button[fill="clear"] {
-  color: #fcfffc;
+  color: #1e891e;
   font-weight: 500;
   text-transform: none;
   font-size: 0.95rem;

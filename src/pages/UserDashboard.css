@@ -174,3 +174,29 @@ ion-tab-bar {
     gap: 12px;
   }
 }
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+}
+
+.welcome-section {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* space between avatar and text */
+}
+
+.profile-avatar {
+  width: 50px;         /* bigger circular image */
+  height: 50px;
+  border-radius: 50%;  /* ensures perfect circle */
+  object-fit: contain;   /* crops image to fit circle */
+  border: 2px solid #ccc; /* optional: nice border around avatar */
+}
+
+.welcome-text {
+  font-size: 16px;
+  font-weight: 500;
+}
+

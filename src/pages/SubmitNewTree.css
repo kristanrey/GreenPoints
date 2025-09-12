@@ -1,123 +1,40 @@
-/* SubmitNewTree.css */
+/* src/pages/SubmitTree.css */
+.photo-section {
+  margin: 20px 0;
+  text-align: center;
+}
 
-/* Full page forest background */
-.submit-page {
-  background-image: url('/forest.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  min-height: 100%;
-  width: 100%;
+.photo-button {
+  margin: 15px 0;
+}
+
+.photo-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  filter: brightness(0.9);
-  padding: 20px;
+  gap: 10px;
 }
 
-/* Card container for the form */
-.submit-card {
-  background: rgba(255, 255, 255, 0.15); /* transparent white */
-  backdrop-filter: blur(12px); /* glassmorphism effect */
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 24px;
-  margin-top: 20px;
+.tree-photo {
   width: 100%;
-  max-width: 500px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-/* Title and description */
-.submit-card h2 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #ffffff;
-  text-align: center;
-  margin-bottom: 6px;
-}
-
-.submit-card p {
-  text-align: center;
-  color: #f1f8e9;
-  margin-bottom: 20px;
-  font-size: 0.95rem;
-}
-
-/* Ion items styled as glass inputs */
-ion-item {
-  --background: rgba(255, 255, 255, 0.25);
+  max-width: 400px;
+  height: 300px;
+  object-fit: cover;
   border-radius: 12px;
-  margin: 10px 0;
-  --color: #1b5e20;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border: 2px solid var(--ion-color-primary);
 }
 
-/* Labels */
-ion-label {
-  font-weight: 600;
-  color: #2e7d32;
+.submit-button {
+  margin-top: 25px;
 }
 
-/* Inputs */
-ion-input {
-  color: #1b5e20;
-  font-weight: 500;
+ion-item {
+  margin-bottom: 15px;
 }
 
-/* Buttons */
-ion-button {
-  --border-radius: 14px;
-  --padding-start: 14px;
-  --padding-end: 14px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  margin-top: 12px;
-  transition: transform 0.2s ease-in-out;
-}
-
-ion-button:hover {
-  transform: scale(1.03);
-}
-
-/* Success (submit) */
-ion-button[color="success"] {
-  --background: linear-gradient(135deg, #43a047, #66bb6a);
-  --color: #ffffff;
-  box-shadow: 0 4px 12px rgba(50, 100, 50, 0.4);
-}
-
-/* Retake button */
-ion-button[color="medium"] {
-  --background: rgba(255, 255, 255, 0.3);
-  --color: #1b1b1b;
-  border: 1px solid #a5d6a7;
-}
-
-/* Camera button */
-ion-button:not([color]) {
-  --background: linear-gradient(135deg, #2e7d32, #43a047);
-  --color: #ffffff;
-}
-
-/* Preview image */
-ion-img {
-  border: 3px solid #c8e6c9;
-  border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(0, 50, 0, 0.35);
-}
-
-/* Location text */
-.submit-card p strong {
-  color: #fff59d;
-}
-
-/* Toast */
-ion-toast {
-  --background: #2e7d32;
-  --color: #ffffff;
-  font-weight: 500;
-  border-radius: 10px;
+ion-textarea {
+  border: 1px solid var(--ion-color-medium);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 5px;
 }

@@ -106,7 +106,7 @@ const Validators: React.FC = () => {
 
           <ul className="side-menu">
             <li>
-              <a href="#">
+              <a href="http://localhost:8100/GreenPoints/LogsAdmin">
                 <i className="bx bxs-cog"></i>
                 <span className="text">Logs</span>
               </a>

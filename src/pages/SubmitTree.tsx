@@ -1,5 +1,5 @@
 // src/pages/SubmitNewTree.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   IonPage,
   IonContent,
@@ -12,13 +12,17 @@ import {
   IonItem,
   IonLabel,
   IonInput,
+  IonCard,
+  IonCardContent,
+  IonCardHeader,
+  IonCardTitle,
 } from "@ionic/react";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Camera, CameraResultType, CameraSource, CameraDirection } from "@capacitor/camera";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
-import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
-import exifr from "exifr"; // ✅ EXIF parser
+import { camera, cameraReverse, images, checkmarkCircle } from "ionicons/icons";
+import exifr from "exifr";
 import "./SubmitNewTree.css";
 
 const SubmitNewTree: React.FC = () => {
@@ -28,51 +32,16 @@ const SubmitNewTree: React.FC = () => {
   const [toastMsg, setToastMsg] = useState<string>("");
   const [showToast, setShowToast] = useState(false);
   const [isNative, setIsNative] = useState<boolean>(false);
-  const [usingWebcam, setUsingWebcam] = useState<boolean>(false);
+  const [useFrontCamera, setUseFrontCamera] = useState<boolean>(false);
 
-  // input states
   const [datePlanted, setDatePlanted] = useState<string>("");
   const [treeName, setTreeName] = useState<string>("");
   const [locationDesc, setLocationDesc] = useState<string>("");
-
-  const [exifData, setExifData] = useState<any>(null); // ✅ Store EXIF info
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [exifData, setExifData] = useState<any>(null);
 
   useEffect(() => {
     setIsNative(Capacitor.isNativePlatform());
   }, []);
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      startWebcam();
-      setUsingWebcam(true);
-    }
-    return () => stopWebcam();
-  }, []);
-
-  const startWebcam = async () => {
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) return;
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
-      }
-    } catch (err) {
-      console.error("Webcam error:", err);
-      show("Unable to access webcam. Try mobile.");
-      setUsingWebcam(false);
-    }
-  };
-
-  const stopWebcam = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  };
 
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
@@ -89,11 +58,7 @@ const SubmitNewTree: React.FC = () => {
           });
         });
       }
-
-      const newCoords = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      };
+      const newCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
       setCoords(newCoords);
       return newCoords;
     } catch (err) {
@@ -116,39 +81,30 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
-  const captureFromWebcam = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const v = videoRef.current;
-    const c = canvasRef.current;
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(v, 0, 0);
-    const dataUrl = c.toDataURL("image/jpeg", 0.9);
-    setPhotoDataUrl(dataUrl);
-
-    const blob = dataUrlToBlob(dataUrl);
-    await extractExif(blob); // ✅ Extract EXIF
-    await getGeoCoords();
-  };
-
-  const takePhotoMobile = async () => {
+  const takeOrPickPhoto = async (source: CameraSource) => {
     try {
       const image = await Camera.getPhoto({
-        source: CameraSource.Camera,
+        source,
         resultType: CameraResultType.DataUrl,
         quality: 85,
         correctOrientation: true,
+        direction: useFrontCamera ? CameraDirection.Front : CameraDirection.Rear,
       });
-      setPhotoDataUrl(image.dataUrl ?? null);
 
-      if (image.dataUrl) {
-        const blob = dataUrlToBlob(image.dataUrl);
-        await extractExif(blob); // ✅ Extract EXIF
+      if (!image || !image.dataUrl) return show("Failed to capture photo.");
+
+      setPhotoDataUrl(image.dataUrl);
+
+      // Extract EXIF
+      const blob = dataUrlToBlob(image.dataUrl);
+      await extractExif(blob);
+
+      // Get GPS coords if not in EXIF
+      if (!coords) {
+        await getGeoCoords();
       }
-      await getGeoCoords();
-    } catch {
+    } catch (err) {
+      console.error(err);
       show("Camera canceled or unavailable.");
     }
   };
@@ -166,8 +122,7 @@ const SubmitNewTree: React.FC = () => {
   const handleSubmit = async () => {
     try {
       if (!photoDataUrl) return show("Please take a photo first.");
-      if (!datePlanted || !treeName || !locationDesc)
-        return show("Please fill all fields.");
+      if (!datePlanted || !treeName || !locationDesc) return show("Please fill all fields.");
 
       let currentCoords = coords;
       if (!currentCoords) {
@@ -184,8 +139,6 @@ const SubmitNewTree: React.FC = () => {
       if (userErr || !user) throw new Error("You must be logged in");
 
       const blob = dataUrlToBlob(photoDataUrl);
-
-      // ✅ Store inside avatars bucket → profiles/{user.id}/trees/
       const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
 
       const { error: upErr } = await supabase.storage
@@ -197,7 +150,6 @@ const SubmitNewTree: React.FC = () => {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // Save to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -210,7 +162,7 @@ const SubmitNewTree: React.FC = () => {
           date_planted: datePlanted,
           tree_type: treeName,
           location_description: locationDesc,
-          exif_metadata: exifData ? JSON.stringify(exifData) : null, // ✅ Store EXIF in DB
+          exif_metadata: exifData ? JSON.stringify(exifData) : null,
         },
       ]);
       if (dbErr) throw dbErr;
@@ -237,109 +189,100 @@ const SubmitNewTree: React.FC = () => {
   return (
     <IonPage>
       <IonContent className="ion-padding">
-        <IonText>
-          <h2>Submit New Tree</h2>
-          <p>Fill out the details and take a photo of your tree.</p>
-        </IonText>
+        <IonCard>
+          <IonCardHeader>
+            <IonCardTitle>Submit New Tree</IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent>
+            <IonText>
+              <p>Fill out the details and take or select a photo of your tree.</p>
+            </IonText>
 
-        {/* Inputs */}
-        <IonItem>
-          <IonLabel position="floating">Date Planted</IonLabel>
-          <IonInput
-            type="date"
-            value={datePlanted}
-            onIonChange={(e) => setDatePlanted(e.detail.value!)}
-          />
-        </IonItem>
+            <IonItem>
+              <IonLabel position="floating">Date Planted</IonLabel>
+              <IonInput
+                type="date"
+                value={datePlanted}
+                onIonChange={(e) => setDatePlanted(e.detail.value!)}
+              />
+            </IonItem>
 
-        <IonItem>
-          <IonLabel position="floating">Name of Tree</IonLabel>
-          <IonInput
-            value={treeName}
-            onIonChange={(e) => setTreeName(e.detail.value!)}
-          />
-        </IonItem>
+            <IonItem>
+              <IonLabel position="floating">Name of Tree</IonLabel>
+              <IonInput value={treeName} onIonChange={(e) => setTreeName(e.detail.value!)} />
+            </IonItem>
 
-        <IonItem>
-          <IonLabel position="floating">Planted Where</IonLabel>
-          <IonInput
-            value={locationDesc}
-            onIonChange={(e) => setLocationDesc(e.detail.value!)}
-          />
-        </IonItem>
+            <IonItem>
+              <IonLabel position="floating">Planted Where</IonLabel>
+              <IonInput value={locationDesc} onIonChange={(e) => setLocationDesc(e.detail.value!)} />
+            </IonItem>
 
-        {/* Camera */}
-        {isNative && !photoDataUrl && (
-          <IonButton expand="block" onClick={takePhotoMobile}>
-            <IonIcon icon={cameraIcon} slot="start" /> Open Camera
-          </IonButton>
-        )}
+            {!photoDataUrl && (
+              <div className="ion-margin-top">
+                <IonButton expand="block" onClick={() => takeOrPickPhoto(CameraSource.Camera)}>
+                  <IonIcon icon={camera} slot="start" /> Take Photo
+                </IonButton>
+                <IonButton
+                  expand="block"
+                  onClick={() => takeOrPickPhoto(CameraSource.Photos)}
+                  className="ion-margin-top"
+                >
+                  <IonIcon icon={images} slot="start" /> Choose from Gallery
+                </IonButton>
+                <IonButton
+                  expand="block"
+                  color="medium"
+                  onClick={() => setUseFrontCamera(!useFrontCamera)}
+                  className="ion-margin-top"
+                >
+                  <IonIcon icon={cameraReverse} slot="start" /> Switch Camera
+                </IonButton>
+              </div>
+            )}
 
-        {!isNative && !photoDataUrl && usingWebcam && (
-          <div>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              style={{ width: "100%", borderRadius: 12 }}
-            />
+            {photoDataUrl && (
+              <>
+                <IonImg src={photoDataUrl} style={{ borderRadius: 12, marginTop: 12 }} />
+                <IonButton
+                  expand="block"
+                  color="medium"
+                  onClick={() => setPhotoDataUrl(null)}
+                  className="ion-margin-top"
+                >
+                  Retake / Select Another
+                </IonButton>
+              </>
+            )}
+
+            {coords && (
+              <IonText>
+                <p className="ion-margin-top">
+                  📍 <strong>Lat:</strong> {coords.lat.toFixed(6)} &nbsp;&nbsp;
+                  <strong>Lng:</strong> {coords.lng.toFixed(6)}
+                </p>
+              </IonText>
+            )}
+
+            {exifData && (
+              <IonText>
+                <p className="ion-margin-top">
+                  📷 <strong>Camera:</strong> {exifData.Make || "Unknown"} {exifData.Model || ""} <br />
+                  🕒 <strong>Taken:</strong> {exifData.DateTimeOriginal || "Not available"}
+                </p>
+              </IonText>
+            )}
+
             <IonButton
               expand="block"
-              onClick={captureFromWebcam}
+              color="success"
+              onClick={handleSubmit}
+              disabled={!photoDataUrl}
               className="ion-margin-top"
             >
-              <IonIcon icon={cameraIcon} slot="start" /> Take Photo
+              <IonIcon icon={checkmarkCircle} slot="start" /> Submit Tree
             </IonButton>
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-          </div>
-        )}
-
-        {photoDataUrl && (
-          <>
-            <IonImg
-              src={photoDataUrl}
-              style={{ borderRadius: 12, marginTop: 12 }}
-            />
-            <IonButton
-              expand="block"
-              color="medium"
-              onClick={() => setPhotoDataUrl(null)}
-              className="ion-margin-top"
-            >
-              Retake Photo
-            </IonButton>
-          </>
-        )}
-
-        {coords && (
-          <IonText>
-            <p className="ion-margin-top">
-              📍 <strong>Lat:</strong> {coords.lat.toFixed(6)} &nbsp;&nbsp;
-              <strong>Lng:</strong> {coords.lng.toFixed(6)}
-            </p>
-          </IonText>
-        )}
-
-        {exifData && (
-          <IonText>
-            <p className="ion-margin-top">
-              📷 <strong>Camera:</strong> {exifData.Make || "Unknown"}{" "}
-              {exifData.Model || ""} <br />
-              🕒 <strong>Taken:</strong>{" "}
-              {exifData.DateTimeOriginal || "Not available"}
-            </p>
-          </IonText>
-        )}
-
-        <IonButton
-          expand="block"
-          color="success"
-          onClick={handleSubmit}
-          disabled={!photoDataUrl}
-          className="ion-margin-top"
-        >
-          <IonIcon icon={checkmarkCircle} slot="start" /> Submit Tree
-        </IonButton>
+          </IonCardContent>
+        </IonCard>
 
         <IonLoading isOpen={busy} message="Submitting..." />
         <IonToast

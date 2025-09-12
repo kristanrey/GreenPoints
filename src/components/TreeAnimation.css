@@ -1,0 +1,10 @@
+.tree-svg {
+  display: block;
+  margin: 0 auto 20px auto;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}

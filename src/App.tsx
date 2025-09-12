@@ -35,6 +35,8 @@ import Feedback from './pages/Feedback';
 import FeedbackAdmin from './pages/FeedbackAdmin';
 import MonitorStatus from './pages/MonitorStatus';
 import ValidatorsLogin from './pages/ValidatorsLogin';
+import Rewards from './pages/Rewards';
+import LogsAdmin from './pages/LogsAdmin';
 
 
 
@@ -68,6 +70,8 @@ const App: React.FC = () => (
           <Route exact path="/GreenPoints/feedbackadmin" component={FeedbackAdmin} />
           <Route exact path="/GreenPoints/monitorstatus" component={MonitorStatus} />
            <Route path="/GreenPoints/validatorslogin" component={ValidatorsLogin} exact />
+           <Route path="/GreenPoints/rewards" component={Rewards} exact />
+           <Route path="/GreenPoints/logsadmin" component={LogsAdmin} exact />
            
             
           

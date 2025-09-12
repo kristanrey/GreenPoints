@@ -89,7 +89,7 @@ const ValidatePage: React.FC = () => {
     const { data, error } = await supabase
       .from("tree_submissions")
       .select("*")
-      .eq("status", "pending") // ✅ only show pending
+      .eq("status", "pending")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -101,44 +101,47 @@ const ValidatePage: React.FC = () => {
     setLoading(false);
   };
 
-  // 🟢 Approve / ❌ Reject action
+  // 🟢 Approve / ❌ Reject action (Updated: auto +30 points, accurate trees_planted)
   const handleAction = async (
     submission_id: number,
     status: "approved" | "rejected"
   ) => {
     try {
-      // 1. Update submission status
+      // 1. Update submission status only
       const { data: updated, error: submissionError } = await supabase
         .from("tree_submissions")
-        .update({
-          status,
-          greenpoints: status === "approved" ? 30 : 0,
-        })
+        .update({ status })
         .eq("submission_id", submission_id)
-        .select("user_id") // ✅ get user_id
+        .select("user_id")
         .single();
 
       if (submissionError) throw submissionError;
 
-      // 2. If approved → update profile stats
       if (status === "approved" && updated?.user_id) {
-        // Get current profile stats
+        // Fetch current profile stats
         const { data: profile, error: fetchError } = await supabase
           .from("profiles")
-          .select("greenpoints, trees_planted")
+          .select("greenpoints")
           .eq("user_id", updated.user_id)
           .single();
 
         if (fetchError) throw fetchError;
 
-        const newGreenpoints = (profile?.greenpoints || 0) + 30;
-        const newTrees = (profile?.trees_planted || 0) + 1;
+        // Count all approved submissions for this user
+        const { count: approvedCount, error: countError } = await supabase
+          .from("tree_submissions")
+          .select("submission_id", { count: "exact", head: true })
+          .eq("user_id", updated.user_id)
+          .eq("status", "approved");
 
+        if (countError) throw countError;
+
+        // Update profile: greenpoints +30, trees_planted = total approved submissions
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
-            greenpoints: newGreenpoints,
-            trees_planted: newTrees,
+            greenpoints: (profile?.greenpoints || 0) + 30,
+            trees_planted: approvedCount || 1,
           })
           .eq("user_id", updated.user_id);
 
@@ -151,6 +154,7 @@ const ValidatePage: React.FC = () => {
           : "❌ Rejected"
       );
       setShowToast(true);
+
       fetchSubmissions();
     } catch (err: any) {
       setToastMsg(`Error: ${err.message}`);
@@ -196,115 +200,142 @@ const ValidatePage: React.FC = () => {
           <p>No pending submissions 🎉</p>
         ) : (
           submissions.map((sub) => (
-           <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
-  <IonCardHeader>
-    <IonCardTitle style={{ fontSize: "20px", fontWeight: "600" }}>
-      Tree Submission
-    </IonCardTitle>
-  </IonCardHeader>
-  <IonCardContent>
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "24px",
-        alignItems: "flex-start",
-      }}
-    >
-      {/* Left: Tree photo + buttons */}
-      <div style={{ textAlign: "center" }}>
-       <IonImg
-  src={sub.image_url}
-  style={{
-    width: "100%",           // responsive width
-    height: "auto",          // scale naturally
-    maxWidth: "100%",        // prevent overflow
-    maxHeight: "50px",      // you can increase this (try 400–500px)
-    objectFit: "contain",    // ✅ always shows whole image
-    borderRadius: "8px",
-    background: "#fafafa",
-    padding: "8px",
-  }}
-/>
+            <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
+              <IonCardHeader>
+                <IonCardTitle style={{ fontSize: "20px", fontWeight: "600" }}>
+                  Tree Submission
+                </IonCardTitle>
+              </IonCardHeader>
+              <IonCardContent>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "24px",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {/* Left: Tree photo + buttons */}
+                  <div style={{ textAlign: "center" }}>
+                    <IonImg
+                      src={sub.image_url}
+                      style={{
+                        width: "100%",
+                        height: "auto",
+                        maxWidth: "100%",
+                        maxHeight: "400px",
+                        objectFit: "contain",
+                        borderRadius: "8px",
+                        background: "#fafafa",
+                        padding: "8px",
+                      }}
+                    />
 
-        <p style={{ marginTop: "8px", fontStyle: "italic" }}>
-          {sub.tree_type || "Planted a new tree"}
-        </p>
-        {sub.status === "pending" && (
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              marginTop: "12px",
-              justifyContent: "center",
-            }}
-          >
-            <IonButton
-              expand="block"
-              color="success"
-              onClick={() => handleAction(sub.submission_id, "approved")}
-            >
-              Approve
-            </IonButton>
-            <IonButton
-              expand="block"
-              color="medium"
-              onClick={() => handleAction(sub.submission_id, "rejected")}
-            >
-              Reject
-            </IonButton>
-          </div>
-        )}
-      </div>
+                    <p style={{ marginTop: "8px", fontStyle: "italic" }}>
+                      {sub.tree_type || "Planted a new tree"}
+                    </p>
+                    {sub.status === "pending" && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          marginTop: "12px",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <IonButton
+                          expand="block"
+                          color="success"
+                          onClick={() =>
+                            handleAction(sub.submission_id, "approved")
+                          }
+                        >
+                          Approve
+                        </IonButton>
+                        <IonButton
+                          expand="block"
+                          color="medium"
+                          onClick={() =>
+                            handleAction(sub.submission_id, "rejected")
+                          }
+                        >
+                          Reject
+                        </IonButton>
+                      </div>
+                    )}
+                  </div>
 
-      {/* Right: EXIF Metadata */}
-      <div
-        style={{
-          border: "1px solid #e0e0e0",
-          borderRadius: "8px",
-          padding: "16px",
-          background: "#fff",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>EXIF Metadata</h4>
-        <table style={{ width: "100%", fontSize: "14px" }}>
-          <tbody>
-            <tr>
-              <td><b>Date taken</b></td>
-              <td>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
-            </tr>
-            <tr>
-              <td><b>Device</b></td>
-              <td>{sub.exif_metadata?.Make} {sub.exif_metadata?.Model}</td>
-            </tr>
-            <tr>
-              <td><b>GPS</b></td>
-              <td>{sub.latitude}, {sub.longitude}</td>
-            </tr>
-            <tr>
-              <td><b>Orientation</b></td>
-              <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
-            </tr>
-            <tr>
-              <td><b>Exif version</b></td>
-              <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
-            </tr>
-            <tr>
-              <td><b>Latitude</b></td>
-              <td>{toDMS(sub.latitude, "lat")}</td>
-            </tr>
-            <tr>
-              <td><b>Longitude</b></td>
-              <td>{toDMS(sub.longitude, "lon")}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </IonCardContent>
-</IonCard>
-
+                  {/* Right: EXIF Metadata */}
+                  <div
+                    style={{
+                      border: "1px solid #e0e0e0",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
+                      EXIF Metadata
+                    </h4>
+                    <table style={{ width: "100%", fontSize: "14px" }}>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <b>Date taken</b>
+                          </td>
+                          <td>
+                            {sub.exif_metadata?.DateTimeOriginal ||
+                              sub.date_planted}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>Device</b>
+                          </td>
+                          <td>
+                            {sub.exif_metadata?.Make}{" "}
+                            {sub.exif_metadata?.Model}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>GPS</b>
+                          </td>
+                          <td>
+                            {sub.latitude}, {sub.longitude}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>Orientation</b>
+                          </td>
+                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>Exif version</b>
+                          </td>
+                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>Latitude</b>
+                          </td>
+                          <td>{toDMS(sub.latitude, "lat")}</td>
+                        </tr>
+                        <tr>
+                          <td>
+                            <b>Longitude</b>
+                          </td>
+                          <td>{toDMS(sub.longitude, "lon")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </IonCardContent>
+            </IonCard>
           ))
         )}
 
