@@ -1,10 +1,19 @@
 /* Background styling */
 .leaderboard-bg {
-  --background: linear-gradient(135deg, #1f0036, #4b004b, #ff007f);
+  --background: none; /* reset Ionic bg */
+  background: 
+   
+    url("/public/forest.jpg"); /* replace with your image path */
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 100vh; /* make sure it fills screen */
 }
+
 
 /* Container */
 .leaderboard-container {
@@ -17,8 +26,8 @@
 /* Card */
 .leaderboard-card {
   border-radius: 20px;
-  background: linear-gradient(135deg, #2a003d, #3d004d);
-  box-shadow: 0 4px 20px rgba(255, 0, 150, 0.5);
+  background: linear-gradient(135deg, #13ec34b6, #3d004d);
+  box-shadow: 0 4px 20px rgba(10, 174, 65, 0.5);
   color: #fff;
   text-align: center;
   overflow: hidden;

@@ -1,0 +1,116 @@
+/* ================================
+   Background
+================================ */
+.auth-container {
+  background: url("/forest.jpg") no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+/* ================================
+   Auth Box
+================================ */
+.auth-box {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 32px 28px;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+/* Heading */
+.auth-box h2 {
+  margin-bottom: 24px;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #2e7d32; /* Green theme */
+}
+
+/* ================================
+   Inputs
+================================ */
+ion-item {
+  --background: transparent;
+  --border-color: #ccc;
+  --highlight-color-focused: #2e7d32;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  --padding-start: 12px;
+}
+
+ion-label {
+  font-weight: 500;
+  color: #444;
+}
+
+/* ================================
+   Password Toggle Icon
+================================ */
+.password-toggle {
+  font-size: 1.3rem;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+  color: #2e7d32;
+}
+
+/* ================================
+   Buttons
+================================ */
+.auth-btn {
+  margin-top: 12px;
+  border-radius: 8px;
+  --background: #2e7d32;
+  --background-hover: #256628;
+  --color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 3px 8px rgba(46, 125, 50, 0.3);
+}
+
+ion-button {
+  margin-top: 8px;
+}
+
+/* Optional: make switch link look like text */
+ion-button[fill="clear"] {
+  color: #fcfffc;
+  font-weight: 500;
+  text-transform: none;
+  font-size: 0.95rem;
+}
+
+/* ================================
+   Toast
+================================ */
+ion-toast {
+  --background: #2e7d32;
+  --color: #fff;
+  --border-radius: 8px;
+}
+
+/* ================================
+   Animations
+================================ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

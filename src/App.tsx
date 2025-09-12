@@ -34,6 +34,10 @@ import EditProfile from './pages/EditProfile';
 import Feedback from './pages/Feedback';
 import FeedbackAdmin from './pages/FeedbackAdmin';
 import MonitorStatus from './pages/MonitorStatus';
+import ValidatorsLogin from './pages/ValidatorsLogin';
+
+
+
 
 
 
@@ -59,10 +63,13 @@ const App: React.FC = () => (
            <Route exact path="/GreenPoints/admin" component={Admin} />
           <Route exact path="/GreenPoints/validate" component={Validate} />
           <Route exact path="/GreenPoints/leaderboard" component={Leaderboard} />
-          <Route path="/GreenPoints/editprofile" component={EditProfile} exact />
+          <Route path="/GreenPoints/editprofile" component={EditProfile} />
           <Route path="/GreenPoints/feedback" component={Feedback} exact />
           <Route exact path="/GreenPoints/feedbackadmin" component={FeedbackAdmin} />
           <Route exact path="/GreenPoints/monitorstatus" component={MonitorStatus} />
+           <Route path="/GreenPoints/validatorslogin" component={ValidatorsLogin} exact />
+           
+            
           
 
 

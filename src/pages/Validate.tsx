@@ -14,7 +14,9 @@ import {
   IonCardHeader,
   IonCardTitle,
   IonCardContent,
+  IonButtons,
 } from "@ionic/react";
+import { useHistory } from "react-router";
 import { supabase } from "../utils/supabaseClient";
 
 interface Submission {
@@ -32,22 +34,66 @@ interface Submission {
 
 const ValidatePage: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [validatorName, setValidatorName] = useState("");
+  const history = useHistory();
 
-  // Fetch submissions
+  // ✅ Check validator access
+  useEffect(() => {
+    const checkValidatorAccess = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setToastMsg("⚠️ Please login as validator");
+          setShowToast(true);
+          history.push("/validators-login");
+          return;
+        }
+
+        // Fetch validator info
+        const { data: validator, error } = await supabase
+          .from("validators")
+          .select("validator_id, full_name")
+          .eq("validator_id", user.id)
+          .single();
+
+        if (error || !validator) {
+          setToastMsg("❌ Access denied: You are not a validator");
+          setShowToast(true);
+          history.push("/validators-login");
+          return;
+        }
+
+        setValidatorName(validator.full_name);
+
+        // Load submissions after validator check
+        fetchSubmissions();
+      } catch (err: any) {
+        setToastMsg(`Error: ${err.message}`);
+        setShowToast(true);
+        history.push("/validators-login");
+      }
+    };
+
+    checkValidatorAccess();
+  }, [history]);
+
+  // 🔄 Fetch only pending submissions
   const fetchSubmissions = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("tree_submissions")
       .select("*")
-      .eq("status", "pending")
+      .eq("status", "pending") // ✅ only show pending
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
-      setToastMsg(`Error fetching: ${error.message}`);
+      setToastMsg(`Error fetching submissions: ${error.message}`);
       setShowToast(true);
     } else {
       setSubmissions(data as Submission[]);
@@ -55,24 +101,54 @@ const ValidatePage: React.FC = () => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, []);
-
+  // 🟢 Approve / ❌ Reject action
   const handleAction = async (
     submission_id: number,
     status: "approved" | "rejected"
   ) => {
     try {
-      const update = await supabase
+      // 1. Update submission status
+      const { data: updated, error: submissionError } = await supabase
         .from("tree_submissions")
-        .update({ status, greenpoints: status === "approved" ? 30 : 0 })
-        .eq("submission_id", submission_id);
+        .update({
+          status,
+          greenpoints: status === "approved" ? 30 : 0,
+        })
+        .eq("submission_id", submission_id)
+        .select("user_id") // ✅ get user_id
+        .single();
 
-      if (update.error) throw update.error;
+      if (submissionError) throw submissionError;
+
+      // 2. If approved → update profile stats
+      if (status === "approved" && updated?.user_id) {
+        // Get current profile stats
+        const { data: profile, error: fetchError } = await supabase
+          .from("profiles")
+          .select("greenpoints, trees_planted")
+          .eq("user_id", updated.user_id)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const newGreenpoints = (profile?.greenpoints || 0) + 30;
+        const newTrees = (profile?.trees_planted || 0) + 1;
+
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            greenpoints: newGreenpoints,
+            trees_planted: newTrees,
+          })
+          .eq("user_id", updated.user_id);
+
+        if (profileError) throw profileError;
+      }
 
       setToastMsg(
-        status === "approved" ? "✅ Approved (+30 GreenPoints)" : "❌ Rejected"
+        status === "approved"
+          ? "✅ Approved (+30 GreenPoints)"
+          : "❌ Rejected"
       );
       setShowToast(true);
       fetchSubmissions();
@@ -97,10 +173,19 @@ const ValidatePage: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonButton slot="start" color="medium" routerLink="/GreenPoints/validators">
+          <IonButton
+            slot="start"
+            color="medium"
+            routerLink="/GreenPoints/validators"
+          >
             ← Go Back
           </IonButton>
           <IonTitle>Validate Trees</IonTitle>
+          <IonButtons slot="end">
+            <IonButton fill="clear">
+              👤 {validatorName || "Loading..."}
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
 
@@ -111,99 +196,115 @@ const ValidatePage: React.FC = () => {
           <p>No pending submissions 🎉</p>
         ) : (
           submissions.map((sub) => (
-            <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
-              <IonCardHeader>
-                <IonCardTitle>Tree Submission</IonCardTitle>
-              </IonCardHeader>
-              <IonCardContent>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "16px",
-                    alignItems: "start",
-                  }}
-                >
-                  {/* Left: Tree photo + buttons */}
-                  <div style={{ textAlign: "center" }}>
-                    <IonImg
-                      src={sub.image_url}
-                      style={{
-                        width: "100%",
-                        borderRadius: "8px",
-                        marginBottom: "8px",
-                      }}
-                    />
-                    <p>Planted a new tree</p>
-                    <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                      <IonButton
-                        color="success"
-                        onClick={() => handleAction(sub.submission_id, "approved")}
-                      >
-                        Approve
-                      </IonButton>
-                      <IonButton
-                        color="medium"
-                        onClick={() => handleAction(sub.submission_id, "rejected")}
-                      >
-                        Reject
-                      </IonButton>
-                    </div>
-                  </div>
+           <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
+  <IonCardHeader>
+    <IonCardTitle style={{ fontSize: "20px", fontWeight: "600" }}>
+      Tree Submission
+    </IonCardTitle>
+  </IonCardHeader>
+  <IonCardContent>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "24px",
+        alignItems: "flex-start",
+      }}
+    >
+      {/* Left: Tree photo + buttons */}
+      <div style={{ textAlign: "center" }}>
+       <IonImg
+  src={sub.image_url}
+  style={{
+    width: "100%",           // responsive width
+    height: "auto",          // scale naturally
+    maxWidth: "100%",        // prevent overflow
+    maxHeight: "50px",      // you can increase this (try 400–500px)
+    objectFit: "contain",    // ✅ always shows whole image
+    borderRadius: "8px",
+    background: "#fafafa",
+    padding: "8px",
+  }}
+/>
 
-                  {/* Right: EXIF Metadata */}
-                  <div
-                    style={{
-                      border: "1px solid #ddd",
-                      borderRadius: "8px",
-                      padding: "12px",
-                    }}
-                  >
-                    <h4 style={{ marginBottom: "12px" }}>EXIF Metadata</h4>
-                    <table style={{ width: "100%", fontSize: "14px" }}>
-                      <tbody>
-                        <tr>
-                          <td><b>Date taken</b></td>
-                          <td>
-                            {sub.exif_metadata?.DateTimeOriginal ||
-                              sub.date_planted}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td><b>Device</b></td>
-                          <td>
-                            {sub.exif_metadata?.Make}{" "}
-                            {sub.exif_metadata?.Model}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td><b>GPS</b></td>
-                          <td>
-                            {sub.latitude}, {sub.longitude}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td><b>Orientation</b></td>
-                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <td><b>Exif version</b></td>
-                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <td><b>Latitude</b></td>
-                          <td>{toDMS(sub.latitude, "lat")}</td>
-                        </tr>
-                        <tr>
-                          <td><b>Longitude</b></td>
-                          <td>{toDMS(sub.longitude, "lon")}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </IonCardContent>
-            </IonCard>
+        <p style={{ marginTop: "8px", fontStyle: "italic" }}>
+          {sub.tree_type || "Planted a new tree"}
+        </p>
+        {sub.status === "pending" && (
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              marginTop: "12px",
+              justifyContent: "center",
+            }}
+          >
+            <IonButton
+              expand="block"
+              color="success"
+              onClick={() => handleAction(sub.submission_id, "approved")}
+            >
+              Approve
+            </IonButton>
+            <IonButton
+              expand="block"
+              color="medium"
+              onClick={() => handleAction(sub.submission_id, "rejected")}
+            >
+              Reject
+            </IonButton>
+          </div>
+        )}
+      </div>
+
+      {/* Right: EXIF Metadata */}
+      <div
+        style={{
+          border: "1px solid #e0e0e0",
+          borderRadius: "8px",
+          padding: "16px",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>EXIF Metadata</h4>
+        <table style={{ width: "100%", fontSize: "14px" }}>
+          <tbody>
+            <tr>
+              <td><b>Date taken</b></td>
+              <td>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
+            </tr>
+            <tr>
+              <td><b>Device</b></td>
+              <td>{sub.exif_metadata?.Make} {sub.exif_metadata?.Model}</td>
+            </tr>
+            <tr>
+              <td><b>GPS</b></td>
+              <td>{sub.latitude}, {sub.longitude}</td>
+            </tr>
+            <tr>
+              <td><b>Orientation</b></td>
+              <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
+            </tr>
+            <tr>
+              <td><b>Exif version</b></td>
+              <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+            </tr>
+            <tr>
+              <td><b>Latitude</b></td>
+              <td>{toDMS(sub.latitude, "lat")}</td>
+            </tr>
+            <tr>
+              <td><b>Longitude</b></td>
+              <td>{toDMS(sub.longitude, "lon")}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </IonCardContent>
+</IonCard>
+
           ))
         )}
 

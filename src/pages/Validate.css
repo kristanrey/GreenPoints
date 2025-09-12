@@ -1,0 +1,71 @@
+/* General page styling */
+.validate-page ion-content {
+  padding: 16px;
+}
+
+/* Card styling */
+.validate-card {
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Grid layout: image left, metadata right */
+.validate-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Tree image section */
+.tree-photo {
+  text-align: center;
+}
+
+.tree-photo img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  object-fit: cover;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* Metadata box */
+.metadata-box {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.metadata-box h4 {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.metadata-box table {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+
+.metadata-box td {
+  padding: 4px 6px;
+  vertical-align: top;
+}
+
+.metadata-box td:first-child {
+  font-weight: bold;
+  color: #444;
+  width: 40%;
+}

@@ -11,7 +11,7 @@ interface Activity {
   status: string;
 }
 
-const AdminDashboard: React.FC = () => {
+const Validators: React.FC = () => {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [userCount, setUserCount] = useState<number>(0);
@@ -233,5 +233,5 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard;
+export default Validators;
   

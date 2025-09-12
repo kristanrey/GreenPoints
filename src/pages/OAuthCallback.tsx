@@ -4,6 +4,28 @@ import { IonPage, IonContent, IonSpinner } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
 import { useIonRouter } from "@ionic/react";
 
+// ✅ Shared redirect URL logic (same as Login.tsx)
+const getRedirectUrl = () => {
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin;
+
+    // Local development
+    if (origin.includes("localhost")) {
+      return "http://localhost:8100/GreenPoints/oauth-callback";
+    }
+
+    // GitHub Pages deployment
+    if (origin.includes("github.io")) {
+      return "https://kristanrey.github.io/GreenPoints/oauth-callback";
+    }
+  }
+
+  // Default fallback (local dev)
+  return "http://localhost:8100/GreenPoints/oauth-callback";
+};
+
+const redirectUrl = getRedirectUrl();
+
 const OAuthCallback: React.FC = () => {
   const router = useIonRouter();
   const [loading, setLoading] = useState(true);
@@ -11,17 +33,17 @@ const OAuthCallback: React.FC = () => {
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        // ✅ Get current session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // ✅ Refresh session in case redirect happened
+        await supabase.auth.getSession();
 
-        if (!session?.user) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
           router.push("/GreenPoints/login");
           return;
         }
-
-        const user = session.user;
 
         // ✅ Fetch profile by user_id
         const { data: profile, error } = await supabase
@@ -41,7 +63,7 @@ const OAuthCallback: React.FC = () => {
               user_id: user.id,
               email: user.email,
               username: null, // force user to set later
-              role: "user",
+              role: "User",
               trees_planted: 0,
               greenpoints: 0,
             },
@@ -70,7 +92,7 @@ const OAuthCallback: React.FC = () => {
             id: user.id,
             name: profile.username,
             email: user.email,
-            role: profile.role || "user",
+            role: profile.role || "User",
             treesPlanted: profile.trees_planted || 0,
             greenpoints: profile.greenpoints || 0,
           })
