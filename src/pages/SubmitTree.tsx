@@ -4,76 +4,49 @@ import {
   IonPage,
   IonContent,
   IonButton,
-  IonText,
-  IonImg,
-  IonToast,
-  IonLoading,
-  IonIcon,
+  IonInput,
   IonItem,
   IonLabel,
-  IonInput,
+  IonTextarea,
+  IonToast,
+  IonSpinner,
+  IonImg,
 } from "@ionic/react";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
-import { supabase } from "../utils/supabaseClient";
-import { camera as cameraIcon, checkmarkCircle } from "ionicons/icons";
-import exifr from "exifr"; // ✅ EXIF parser
-import "./SubmitNewTree.css";
+import exifr from "exifr";
+  import { supabase } from "../utils/supabaseClient";
 
 const SubmitNewTree: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string>("");
-  const [showToast, setShowToast] = useState(false);
-  const [isNative, setIsNative] = useState<boolean>(false);
-  const [usingWebcam, setUsingWebcam] = useState<boolean>(false);
+  const [treeType, setTreeType] = useState("");
+  const [description, setDescription] = useState("");
+  const [locationDescription, setLocationDescription] = useState("");
+  const [datePlanted, setDatePlanted] = useState("");
+  const [exifData, setExifData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
 
-  // input states
-  const [datePlanted, setDatePlanted] = useState<string>("");
-  const [treeName, setTreeName] = useState<string>("");
-  const [locationDesc, setLocationDesc] = useState<string>("");
-
-  const [exifData, setExifData] = useState<any>(null); // ✅ Store EXIF info
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
     setIsNative(Capacitor.isNativePlatform());
   }, []);
 
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      startWebcam();
-      setUsingWebcam(true);
-    }
-    return () => stopWebcam();
-  }, []);
-
-  const startWebcam = async () => {
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) return;
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
-      }
-    } catch (err) {
-      console.error("Webcam error:", err);
-      show("Unable to access webcam. Try mobile.");
-      setUsingWebcam(false);
-    }
+  // Convert DataURL to Blob
+  const dataUrlToBlob = (dataUrl: string) => {
+    const [meta, b64] = dataUrl.split(",");
+    const mime = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+    const binStr = atob(b64);
+    const len = binStr.length;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) arr[i] = binStr.charCodeAt(i);
+    return new Blob([arr], { type: mime });
   };
 
-  const stopWebcam = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  };
-
+  // Get device location
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
@@ -89,7 +62,6 @@ const SubmitNewTree: React.FC = () => {
           });
         });
       }
-
       const newCoords = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
@@ -97,11 +69,12 @@ const SubmitNewTree: React.FC = () => {
       setCoords(newCoords);
       return newCoords;
     } catch (err) {
-      show("Unable to get location. Please allow location permission.");
+      showToast("Unable to get location. Please allow location permission.");
       return null;
     }
   };
 
+  // Extract EXIF data
   const extractExif = async (blob: Blob) => {
     try {
       const metadata = await exifr.parse(blob, { gps: true });
@@ -116,23 +89,7 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
-  const captureFromWebcam = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const v = videoRef.current;
-    const c = canvasRef.current;
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(v, 0, 0);
-    const dataUrl = c.toDataURL("image/jpeg", 0.9);
-    setPhotoDataUrl(dataUrl);
-
-    const blob = dataUrlToBlob(dataUrl);
-    await extractExif(blob); // ✅ Extract EXIF
-    await getGeoCoords();
-  };
-
+  // Take photo on mobile
   const takePhotoMobile = async () => {
     try {
       const image = await Camera.getPhoto({
@@ -145,209 +102,128 @@ const SubmitNewTree: React.FC = () => {
 
       if (image.dataUrl) {
         const blob = dataUrlToBlob(image.dataUrl);
-        await extractExif(blob); // ✅ Extract EXIF
+        await extractExif(blob);
       }
+
       await getGeoCoords();
     } catch {
-      show("Camera canceled or unavailable.");
+      showToast("Camera canceled or unavailable.");
     }
   };
 
-  const dataUrlToBlob = (dataUrl: string) => {
-    const [meta, b64] = dataUrl.split(",");
-    const mime = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
-    const binStr = atob(b64);
-    const len = binStr.length;
-    const arr = new Uint8Array(len);
-    for (let i = 0; i < len; i++) arr[i] = binStr.charCodeAt(i);
-    return new Blob([arr], { type: mime });
-  };
-
   const handleSubmit = async () => {
+    if (!photoDataUrl) return showToast("Please take a photo first.");
+    if (!treeType || !datePlanted || !locationDescription)
+      return showToast("Please fill all fields.");
+
+    setLoading(true);
     try {
-      if (!photoDataUrl) return show("Please take a photo first.");
-      if (!datePlanted || !treeName || !locationDesc)
-        return show("Please fill all fields.");
+      const currentCoords = coords || (await getGeoCoords());
+      if (!currentCoords) throw new Error("Location required.");
 
-      let currentCoords = coords;
-      if (!currentCoords) {
-        currentCoords = await getGeoCoords();
-        if (!currentCoords) return show("Location required.");
-      }
-
-      setBusy(true);
-
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-      if (userErr || !user) throw new Error("You must be logged in");
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) throw new Error("You must be logged in.");
 
       const blob = dataUrlToBlob(photoDataUrl);
+      const fileName = `submissions/${user.id}_${Date.now()}.jpg`;
 
-      // ✅ Store inside avatars bucket → profiles/{user.id}/trees/
-      const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
-
-      const { error: upErr } = await supabase.storage
+      // Upload to avatars bucket
+      const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filename, blob, { contentType: "image/jpeg" });
+        .upload(fileName, blob, { contentType: "image/jpeg" });
+      if (uploadError) throw uploadError;
 
-      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(fileName);
+      const publicUrl = pub?.publicUrl ?? "";
 
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
-      const publicUrl = pub?.publicUrl ?? null;
-
-      // Save to DB
-      const { error: dbErr } = await supabase.from("tree_submissions").insert([
+      // Insert into tree_submissions
+      const { error: insertError } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
-          image_path: filename,
+          image_path: fileName,
           image_url: publicUrl,
           latitude: currentCoords.lat,
           longitude: currentCoords.lng,
           status: "pending",
-          description: "Planted a new tree 🌱",
+          description,
           date_planted: datePlanted,
-          tree_type: treeName,
-          location_description: locationDesc,
-          exif_metadata: exifData ? JSON.stringify(exifData) : null, // ✅ Store EXIF in DB
+          tree_type: treeType,
+          location_description: locationDescription,
+          greenpoints: 0,
+          exif_metadata: exifData ? JSON.stringify(exifData) : null,
         },
       ]);
-      if (dbErr) throw dbErr;
+      if (insertError) throw insertError;
 
-      show("✅ Tree submitted successfully! Awaiting validation.");
+      showToast("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);
       setCoords(null);
+      setTreeType("");
+      setDescription("");
+      setLocationDescription("");
       setDatePlanted("");
-      setTreeName("");
-      setLocationDesc("");
       setExifData(null);
     } catch (err: any) {
-      show(`❌ ${err.message || "Submission failed"}`);
+      console.error(err);
+      showToast(`❌ ${err.message || "Submission failed"}`);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
-  const show = (msg: string) => {
-    setToastMsg(msg);
-    setShowToast(true);
-  };
+  const showToast = (msg: string) => setToastMsg(msg);
 
   return (
     <IonPage>
       <IonContent className="ion-padding">
-        <IonText>
-          <h2>Submit New Tree</h2>
-          <p>Fill out the details and take a photo of your tree.</p>
-        </IonText>
+        <h2>Submit New Tree</h2>
 
-        {/* Inputs */}
+        <IonItem>
+          <IonLabel position="floating">Tree Type</IonLabel>
+          <IonInput value={treeType} onIonChange={(e) => setTreeType(e.detail.value!)} />
+        </IonItem>
+
         <IonItem>
           <IonLabel position="floating">Date Planted</IonLabel>
-          <IonInput
-            type="date"
-            value={datePlanted}
-            onIonChange={(e) => setDatePlanted(e.detail.value!)}
-          />
+          <IonInput type="date" value={datePlanted} onIonChange={(e) => setDatePlanted(e.detail.value!)} />
         </IonItem>
 
         <IonItem>
-          <IonLabel position="floating">Name of Tree</IonLabel>
-          <IonInput
-            value={treeName}
-            onIonChange={(e) => setTreeName(e.detail.value!)}
-          />
+          <IonLabel position="floating">Location Description</IonLabel>
+          <IonInput value={locationDescription} onIonChange={(e) => setLocationDescription(e.detail.value!)} />
         </IonItem>
 
         <IonItem>
-          <IonLabel position="floating">Planted Where</IonLabel>
-          <IonInput
-            value={locationDesc}
-            onIonChange={(e) => setLocationDesc(e.detail.value!)}
-          />
+          <IonLabel position="floating">Description</IonLabel>
+          <IonTextarea value={description} onIonChange={(e) => setDescription(e.detail.value!)} />
         </IonItem>
 
-        {/* Camera */}
-        {isNative && !photoDataUrl && (
+        {!photoDataUrl && (
           <IonButton expand="block" onClick={takePhotoMobile}>
-            <IonIcon icon={cameraIcon} slot="start" /> Open Camera
+            Take Photo
           </IonButton>
-        )}
-
-        {!isNative && !photoDataUrl && usingWebcam && (
-          <div>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              style={{ width: "100%", borderRadius: 12 }}
-            />
-            <IonButton
-              expand="block"
-              onClick={captureFromWebcam}
-              className="ion-margin-top"
-            >
-              <IonIcon icon={cameraIcon} slot="start" /> Take Photo
-            </IonButton>
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-          </div>
         )}
 
         {photoDataUrl && (
           <>
-            <IonImg
-              src={photoDataUrl}
-              style={{ borderRadius: 12, marginTop: 12 }}
-            />
-            <IonButton
-              expand="block"
-              color="medium"
-              onClick={() => setPhotoDataUrl(null)}
-              className="ion-margin-top"
-            >
+            <IonImg src={photoDataUrl} style={{ borderRadius: 12, marginTop: 12 }} />
+            <IonButton expand="block" color="medium" onClick={() => setPhotoDataUrl(null)}>
               Retake Photo
             </IonButton>
           </>
         )}
 
         {coords && (
-          <IonText>
-            <p className="ion-margin-top">
-              📍 <strong>Lat:</strong> {coords.lat.toFixed(6)} &nbsp;&nbsp;
-              <strong>Lng:</strong> {coords.lng.toFixed(6)}
-            </p>
-          </IonText>
+          <p>
+            📍 Lat: {coords.lat.toFixed(6)}, Lng: {coords.lng.toFixed(6)}
+          </p>
         )}
 
-        {exifData && (
-          <IonText>
-            <p className="ion-margin-top">
-              📷 <strong>Camera:</strong> {exifData.Make || "Unknown"}{" "}
-              {exifData.Model || ""} <br />
-              🕒 <strong>Taken:</strong>{" "}
-              {exifData.DateTimeOriginal || "Not available"}
-            </p>
-          </IonText>
-        )}
-
-        <IonButton
-          expand="block"
-          color="success"
-          onClick={handleSubmit}
-          disabled={!photoDataUrl}
-          className="ion-margin-top"
-        >
-          <IonIcon icon={checkmarkCircle} slot="start" /> Submit Tree
+        <IonButton expand="block" color="success" onClick={handleSubmit} disabled={loading || !photoDataUrl}>
+          {loading ? <IonSpinner name="crescent" /> : "Submit Tree"}
         </IonButton>
 
-        <IonLoading isOpen={busy} message="Submitting..." />
-        <IonToast
-          isOpen={showToast}
-          message={toastMsg}
-          duration={2500}
-          onDidDismiss={() => setShowToast(false)}
-        />
+        <IonToast isOpen={!!toastMsg} message={toastMsg} duration={3000} onDidDismiss={() => setToastMsg("")} />
       </IonContent>
     </IonPage>
   );
