@@ -108,12 +108,12 @@ const ValidatePage: React.FC = () => {
   ) => {
     try {
       // 1. Update submission status only
-      const { data: updated, error: submissionError } = await supabase
-        .from("tree_submissions")
-        .update({ status })
-        .eq("submission_id", submission_id)
-        .select("user_id")
-        .single();
+     const { data: updated, error: submissionError } = await supabase
+  .from("tree_submissions")
+  .update({ status })
+  .eq("submission_id", submission_id)
+  .select("user_id")
+  .maybeSingle(); // <-- safer than .single()
 
       if (submissionError) throw submissionError;
 

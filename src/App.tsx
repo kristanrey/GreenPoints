@@ -44,6 +44,7 @@ import News from './pages/News';
 
 
 
+
 setupIonicReact();
 
 const App: React.FC = () => (
@@ -73,6 +74,9 @@ const App: React.FC = () => (
            <Route path="/GreenPoints/validatorslogin" component={ValidatorsLogin} exact />
            <Route path="/GreenPoints/rewards" component={Rewards} exact />
            <Route path="/GreenPoints/logsadmin" component={LogsAdmin} exact />
+            <Route path="/GreenPoints/news" component={News} exact />
+      
+
            
             
           
