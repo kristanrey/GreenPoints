@@ -1,39 +1,24 @@
-.logs-table {
+.profile-background {
+  background-image: url('/forest.jpg'); /* 🌲 same as landing */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: brightness(0.85);
+  min-height: 100vh;
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-  font-family: Arial, sans-serif;
-}
 
-.logs-table th, .logs-table td {
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  text-align: left;
-  color: #fff;
-  background-color: rgba(0,0,0,0.5);
-}
-
-.logs-table th {
-  background-color: rgba(0,0,0,0.7);
-}
-
-.submission-row td {
-  background-color: rgba(0,0,0,0.4);
-}
-
-.submission-container {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
 }
 
-.submission-img {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.submission-info p {
-  margin: 2px 0;
+.profile-container {
+  width: 5100%;
+  max-width: 320px;
+  margin: auto;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.92); /* translucent white */
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }

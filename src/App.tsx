@@ -37,6 +37,7 @@ import MonitorStatus from './pages/MonitorStatus';
 import ValidatorsLogin from './pages/ValidatorsLogin';
 import Rewards from './pages/Rewards';
 import LogsAdmin from './pages/LogsAdmin';
+import News from './pages/News';
 
 
 
