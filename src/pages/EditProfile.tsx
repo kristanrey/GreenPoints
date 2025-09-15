@@ -119,62 +119,65 @@ const ProfilePage: React.FC = () => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="profile-content">
-        <div className="profile-container">
-          {/* Avatar */}
-          <div className="profile-avatar-container">
-            <IonAvatar className="profile-avatar">
-              <img src={avatarUrl || "https://via.placeholder.com/150"} alt="Profile" />
-            </IonAvatar>
+      {/* ✅ Background wrapper */}
+      <IonContent fullscreen>
+        <div className="profile-background">
+          <div className="profile-container">
+            {/* Avatar */}
+            <div className="profile-avatar-container">
+              <IonAvatar className="profile-avatar">
+                <img src={avatarUrl || "https://via.placeholder.com/150"} alt="Profile" />
+              </IonAvatar>
 
-            <IonButton fill="outline" size="small" className="upload-btn">
-              <label htmlFor="file-upload">Change Photo</label>
+              <IonButton fill="outline" size="small" className="upload-btn">
+                <label htmlFor="file-upload">Change Photo</label>
+              </IonButton>
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: "none" }}
+              />
+            </div>
+
+            {/* Username */}
+            <IonItem className="profile-input">
+              <IonLabel position="floating">Username</IonLabel>
+              <IonInput
+                value={username}
+                onIonChange={(e) => setUsername(e.detail.value ?? "")}
+              />
+            </IonItem>
+
+            {/* Email */}
+            <IonItem className="profile-input">
+              <IonLabel>Email</IonLabel>
+              <IonText slot="end">{email}</IonText>
+            </IonItem>
+
+            {/* Role */}
+            <IonItem className="profile-input">
+              <IonLabel>Role</IonLabel>
+              <IonText slot="end">{role}</IonText>
+            </IonItem>
+
+            {/* Trees Planted */}
+            <IonItem className="profile-input">
+              <IonLabel>Trees Planted</IonLabel>
+              <IonText slot="end">{treesPlanted}</IonText>
+            </IonItem>
+
+            {/* GreenPoints */}
+            <IonItem className="profile-input">
+              <IonLabel>GreenPoints</IonLabel>
+              <IonText slot="end">{greenpoints}</IonText>
+            </IonItem>
+
+            <IonButton expand="block" onClick={handleSave} className="save-btn">
+              Save Changes
             </IonButton>
-            <input
-              id="file-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              style={{ display: "none" }}
-            />
           </div>
-
-          {/* Username */}
-          <IonItem className="profile-input">
-            <IonLabel position="floating">Username</IonLabel>
-            <IonInput
-              value={username}
-              onIonChange={(e) => setUsername(e.detail.value ?? "")}
-            />
-          </IonItem>
-
-          {/* Email */}
-          <IonItem className="profile-input">
-            <IonLabel>Email</IonLabel>
-            <IonText slot="end">{email}</IonText>
-          </IonItem>
-
-          {/* Role */}
-          <IonItem className="profile-input">
-            <IonLabel>Role</IonLabel>
-            <IonText slot="end">{role}</IonText>
-          </IonItem>
-
-          {/* Trees Planted */}
-          <IonItem className="profile-input">
-            <IonLabel>Trees Planted</IonLabel>
-            <IonText slot="end">{treesPlanted}</IonText>
-          </IonItem>
-
-          {/* GreenPoints */}
-          <IonItem className="profile-input">
-            <IonLabel>GreenPoints</IonLabel>
-            <IonText slot="end">{greenpoints}</IonText>
-          </IonItem>
-
-          <IonButton expand="block" onClick={handleSave} className="save-btn">
-            Save Changes
-          </IonButton>
         </div>
       </IonContent>
     </IonPage>

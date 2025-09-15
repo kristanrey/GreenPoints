@@ -1,7 +1,16 @@
-/* Main content fills page */
-.profile-content {
+
+/* Profile page background */
+.profile-background {
+  background-image: url('/public/forest.jpg'); /* ✅ your forest background */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: brightness(0.9); /* slightly dim for contrast */
+  min-height: 100vh;
+  width: 100%;
   display: flex;
-  justify-content: center; /* centers container horizontally */
+  justify-content: center;
+  align-items: center; /* centers card vertically */
   padding: 20px;
   box-sizing: border-box;
 }
@@ -9,33 +18,67 @@
 /* The actual card/container */
 .profile-container {
   width: 100%;
-  max-width: 400px;    /* keep it neat in center */
-  margin: 0 auto;      /* auto centers on larger screens */
-  text-align: center;  /* center text inside */
+  max-width: 320px;   /* smaller for mobile */
+  margin: 0 auto;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.95); /* translucent white for readability */
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
+/* Avatar section */
 .profile-avatar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
+}
+
+.profile-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #4CAF50;
 }
 
 .profile-avatar img {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .upload-btn {
-  margin-top: 10px;
+  margin-top: 8px;
+  font-size: 14px;
+  --border-radius: 20px;
 }
 
+/* Profile inputs */
 .profile-input {
-  margin: 10px 0;
+  margin: 8px 0;
+  width: 100%;
 }
 
+.profile-input ion-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.profile-input ion-text {
+  font-size: 14px;
+  color: #333;
+}
+
+/* Save button */
 .save-btn {
-  margin-top: 20px;
+  margin-top: 16px;
+  font-size: 15px;
+  --border-radius: 24px;
+  width: 100%;
 }
