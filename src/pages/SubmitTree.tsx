@@ -95,11 +95,9 @@ const SubmitNewTree: React.FC = () => {
 
       setPhotoDataUrl(image.dataUrl);
 
-      // Extract EXIF
       const blob = dataUrlToBlob(image.dataUrl);
       await extractExif(blob);
 
-      // Get GPS coords if not in EXIF
       if (!coords) {
         await getGeoCoords();
       }
@@ -141,15 +139,16 @@ const SubmitNewTree: React.FC = () => {
       const blob = dataUrlToBlob(photoDataUrl);
       const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
 
+      // Upload image
       const { error: upErr } = await supabase.storage
         .from("avatars")
         .upload(filename, blob, { contentType: "image/jpeg" });
-
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
+      // Insert tree submission
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -166,6 +165,16 @@ const SubmitNewTree: React.FC = () => {
         },
       ]);
       if (dbErr) throw dbErr;
+
+      // ✅ Update treesPlanted dynamically
+      const { count, error: countErr } = await supabase
+        .from("tree_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if (countErr) console.warn("Could not count trees:", countErr);
+
+      // Optional: update user's treesPlanted column
+      await supabase.from("users").update({ treesPlanted: count }).eq("id", user.id);
 
       show("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);
