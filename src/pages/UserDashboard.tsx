@@ -14,6 +14,8 @@ import {
   IonTabButton,
   IonLabel,
   IonImg,
+  IonCardHeader,
+  IonCardTitle,
 } from "@ionic/react";
 import {
   home,
@@ -24,6 +26,7 @@ import {
   podium,
   logOut,
   chatbox,
+  newspaper,
 } from "ionicons/icons";
 import { useEffect, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
@@ -39,9 +42,12 @@ const UserDashboard: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // <-- Profile picture state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
+
+  // 🔹 News state
+  const [newsList, setNewsList] = useState<any[]>([]);
 
   const history = useHistory();
   const location = useLocation();
@@ -61,7 +67,7 @@ const UserDashboard: React.FC = () => {
   const handleViewProfile = () => navigateTo("/GreenPoints/editprofile");
   const handleViewHome = () => navigateTo("/GreenPoints/dashboard");
 
-  // Fetch user profile
+  // Fetch user profile + news
   const fetchUserData = async () => {
     setFeedback("");
     setShowToast(false);
@@ -82,7 +88,7 @@ const UserDashboard: React.FC = () => {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("username, trees_planted, greenpoints, avatar_url") // <-- fetch avatar_url
+      .select("username, trees_planted, greenpoints, avatar_url")
       .eq("user_id", user.id)
       .single();
 
@@ -94,7 +100,7 @@ const UserDashboard: React.FC = () => {
       setUserName(data?.username || "Guest");
       setTreesPlanted(data?.trees_planted || 0);
       setGreenpoints(data?.greenpoints || 0);
-      setAvatarUrl(data?.avatar_url || null); // <-- set avatar
+      setAvatarUrl(data?.avatar_url || null);
     }
 
     const { count, error: submissionsError } = await supabase
@@ -105,6 +111,17 @@ const UserDashboard: React.FC = () => {
 
     if (!submissionsError) {
       setPendingSubmissions(count || 0);
+    }
+
+    // 🔹 Fetch latest news with image_url
+    const { data: news, error: newsError } = await supabase
+      .from("news")
+      .select("id, title, content, image_url, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (!newsError && news) {
+      setNewsList(news);
     }
 
     setLoading(false);
@@ -210,7 +227,7 @@ const UserDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="action-buttons">
-          <IonButton expand="block" className="dashboard-button" color="tertiary" onClick={() => navigateTo("/GreenPoints/leaderboard")}>
+          <IonButton expand="block" className="dashboard-button" color="tertiary" onClick={() => navigateTo("/GreenPoints/status")}>
             <IonIcon icon={podium} slot="start" />
             Monitor Status
           </IonButton>
@@ -235,6 +252,37 @@ const UserDashboard: React.FC = () => {
             Feedback
           </IonButton>
         </div>
+
+      {/* 🔹 News Section */}
+<h2 className="section-title">
+  <IonIcon icon={newspaper} /> Latest News
+</h2>
+
+{newsList.length > 0 ? (
+  newsList.map((news) => (
+    <IonCard key={news.id} className="news-card">
+      {news.image_url && (
+        <IonImg src={news.image_url} alt={news.title} className="news-image" />
+      )}
+      <IonCardHeader>
+        <IonCardTitle>{news.title}</IonCardTitle>
+      </IonCardHeader>
+      <IonCardContent>
+        <p>
+          {news.content.length > 120
+            ? news.content.substring(0, 120) + "..."
+            : news.content}
+        </p>
+        <small>
+          📅 {new Date(news.created_at).toLocaleDateString()}
+        </small>
+      </IonCardContent>
+    </IonCard>
+  ))
+) : (
+  <p className="ion-text-center">No news available.</p>
+)}
+
 
         <IonToast
           isOpen={showToast}

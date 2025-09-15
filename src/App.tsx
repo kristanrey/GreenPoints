@@ -37,6 +37,7 @@ import MonitorStatus from './pages/MonitorStatus';
 import ValidatorsLogin from './pages/ValidatorsLogin';
 import Rewards from './pages/Rewards';
 import LogsAdmin from './pages/LogsAdmin';
+import News from './pages/News';
 
 
 
@@ -72,6 +73,7 @@ const App: React.FC = () => (
            <Route path="/GreenPoints/validatorslogin" component={ValidatorsLogin} exact />
            <Route path="/GreenPoints/rewards" component={Rewards} exact />
            <Route path="/GreenPoints/logsadmin" component={LogsAdmin} exact />
+            <Route path="/GreenPoints/news" component={News} exact />
            
             
           

@@ -97,7 +97,7 @@ const Validators: React.FC = () => {
               </a>
             </li>
             <li>
-              <a href="#">
+              <a href="http://localhost:8100/GreenPoints/News">
                 <i className="bx bxs-group"></i>
                 <span className="text">News</span>
               </a>
