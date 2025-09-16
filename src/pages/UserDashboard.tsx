@@ -237,11 +237,6 @@ const UserDashboard: React.FC = () => {
             Submit New Tree
           </IonButton>
 
-          <IonButton expand="block" className="dashboard-button" onClick={handleViewRewards}>
-            <IonIcon icon={gift} slot="start" />
-            View Rewards
-          </IonButton>
-
           <IonButton expand="block" className="dashboard-button" color="tertiary" onClick={() => navigateTo("/GreenPoints/leaderboard")}>
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
@@ -253,36 +248,47 @@ const UserDashboard: React.FC = () => {
           </IonButton>
         </div>
 
-      {/* 🔹 News Section */}
-<h2 className="section-title">
-  <IonIcon icon={newspaper} /> Latest News
-</h2>
+        {/* 🔹 News Section */}
+        <h2 className="section-title">
+          <IonIcon icon={newspaper} /> Latest News
+        </h2>
 
-{newsList.length > 0 ? (
-  newsList.map((news) => (
-    <IonCard key={news.id} className="news-card">
-      {news.image_url && (
-        <IonImg src={news.image_url} alt={news.title} className="news-image" />
-      )}
-      <IonCardHeader>
-        <IonCardTitle>{news.title}</IonCardTitle>
-      </IonCardHeader>
-      <IonCardContent>
-        <p>
-          {news.content.length > 120
-            ? news.content.substring(0, 120) + "..."
-            : news.content}
-        </p>
-        <small>
-          📅 {new Date(news.created_at).toLocaleDateString()}
-        </small>
-      </IonCardContent>
-    </IonCard>
-  ))
-) : (
-  <p className="ion-text-center">No news available.</p>
-)}
+        {newsList.length > 0 ? (
+          newsList.map((news) => (
+            <IonCard key={news.id} className="news-card">
+              {news.image_url && (
+                <IonImg src={news.image_url} alt={news.title} className="news-image" />
+              )}
+              <IonCardHeader>
+                <IonCardTitle>{news.title}</IonCardTitle>
+              </IonCardHeader>
+              <IonCardContent>
+                <p>
+                  {news.content.length > 120
+                    ? news.content.substring(0, 120) + "..."
+                    : news.content}
+                </p>
+                <small>
+                  📅 {new Date(news.created_at).toLocaleDateString()}
+                </small>
 
+                {/* Read More button */}
+                <div style={{ marginTop: "10px", textAlign: "right" }}>
+                  <IonButton
+                    size="small"
+                    fill="outline"
+                    color="primary"
+                    onClick={() => navigateTo(`/GreenPoints/news/${news.id}`)}
+                  >
+                    Read More
+                  </IonButton>
+                </div>
+              </IonCardContent>
+            </IonCard>
+          ))
+        ) : (
+          <p className="ion-text-center">No news available.</p>
+        )}
 
         <IonToast
           isOpen={showToast}
