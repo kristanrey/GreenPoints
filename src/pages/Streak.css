@@ -1,0 +1,90 @@
+.streak-content {
+  text-align: center;
+}
+
+.streak-flame {
+  margin-top: 20px;
+}
+
+.flame-icon {
+  font-size: 60px;
+}
+
+.streak-number {
+  font-size: 48px;
+  font-weight: bold;
+  display: block;
+}
+
+.streak-text {
+  font-size: 20px;
+  margin-top: 5px;
+  color: #ff8800;
+}
+
+.streak-card {
+  margin-top: 20px;
+  padding: 10px;
+}
+
+.day-row {
+  justify-content: center;
+}
+
+.day-col {
+  text-align: center;
+}
+
+.day-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin: auto;
+  background: #ddd;
+  line-height: 32px;
+  font-size: 16px;
+  color: white;
+}
+
+.day-circle.active {
+  background: orange;
+}
+
+.day-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.streak-note {
+  display: block;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #444;
+}
+
+.highlight {
+  color: orange;
+  font-weight: bold;
+}
+
+.streak-table {
+  margin-top: 20px;
+}
+
+.streak-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.streak-table th,
+.streak-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.streak-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
