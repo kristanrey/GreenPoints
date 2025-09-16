@@ -18,6 +18,7 @@ const Streak: React.FC = () => {
   const [today, setToday] = useState(new Date());
   const [completedDays, setCompletedDays] = useState<number[]>([]);
   const [points, setPoints] = useState<number>(0);
+  const [streakDays, setStreakDays] = useState<number>(0);
 
   // Update "today" in real time (every minute)
   useEffect(() => {
@@ -33,7 +34,34 @@ const Streak: React.FC = () => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
 
-  // Fetch login logs for current month
+  // Fetch streak (points + streak days)
+  useEffect(() => {
+    const fetchStreak = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("streak")
+        .select("streak_days, total_points")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching streak:", error);
+        return;
+      }
+
+      setPoints(data?.total_points || 0);
+      setStreakDays(data?.streak_days || 0);
+    };
+
+    fetchStreak();
+  }, []);
+
+  // Fetch login logs for current month (calendar checkmarks)
   useEffect(() => {
     const fetchLogs = async () => {
       const startOfMonth = new Date(year, month, 1).toISOString();
@@ -57,19 +85,6 @@ const Streak: React.FC = () => {
       ).sort((a, b) => a - b);
 
       setCompletedDays(days);
-
-      // Calculate points
-      let totalPoints = 0;
-      let streakBonus = 0;
-
-      for (let i = 0; i < days.length; i++) {
-        totalPoints += 0.5; // base points
-        if (i > 0 && days[i] === days[i - 1] + 1) {
-          streakBonus += 0.1; // consecutive login bonus
-        }
-      }
-
-      setPoints(parseFloat((totalPoints + streakBonus).toFixed(1)));
     };
 
     fetchLogs();
@@ -78,14 +93,32 @@ const Streak: React.FC = () => {
   return (
     <IonPage>
       <IonContent className="ion-padding ion-text-center">
-        {/* Header with flame and points */}
-        <div style={{ fontSize: "80px", color: "orange", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        {/* Header with flame, streak days and points */}
+        <div
+          style={{
+            fontSize: "80px",
+            color: "orange",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           🔥
-          <IonText color="warning" style={{ marginLeft: "10px", fontSize: "24px", fontWeight: "bold" }}>
+          <IonText
+            color="warning"
+            style={{ marginLeft: "10px", fontSize: "24px", fontWeight: "bold" }}
+          >
             {points} pts
           </IonText>
         </div>
+        <IonText>
+          <p style={{ marginTop: "-10px", fontSize: "18px" }}>
+            Current streak: <strong>{streakDays}</strong> day
+            {streakDays !== 1 ? "s" : ""}
+          </p>
+        </IonText>
 
+        {/* Month + Year */}
         <IonText color="warning">
           <h1 style={{ fontSize: "36px", margin: 0 }}>
             {monthName} {year}
@@ -172,7 +205,8 @@ const Streak: React.FC = () => {
           <p>
             ✅ Check = logged in that day.  
             🔲 Orange border = today.  
-            🔥 Points = +0.5 daily, +0.1 per streak.
+            🔥 Points = stored in streak table.  
+            +0.5 per login, +0.1 per consecutive day.
           </p>
         </IonText>
       </IonContent>
