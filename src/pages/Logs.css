@@ -1,0 +1,60 @@
+.logs-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.logs-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2a2a2a;
+}
+
+.logs-table {
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+.logs-header {
+  background: #f1f5f9;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 2px solid #e2e8f0;
+  color: #475569;
+}
+
+.logs-row {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.2s ease;
+}
+
+.logs-row.even {
+  background: #f9fafb;
+}
+
+.logs-row:hover {
+  background: #e0f2fe;
+}
+
+.action-login {
+  color: #16a34a; /* green */
+  font-weight: 600;
+}
+
+.action-logout {
+  color: #dc2626; /* red */
+  font-weight: 600;
+}
+
+.loading-container {
+  text-align: center;
+  margin-top: 50px;
+  color: #475569;
+}
+
+.no-logs {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  margin-top: 20px;
+}

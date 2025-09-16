@@ -1,3 +1,4 @@
+// src/pages/Register.tsx
 import {
   IonAvatar,
   IonButton,
@@ -17,11 +18,9 @@ import {
   IonIcon
 } from "@ionic/react";
 import { useState } from "react";
-import { mailOutline, personOutline, lockClosedOutline } from "ionicons/icons"; // 📧👤🔒 icons
-import './Register.css';
-
-// ✅ Import Supabase client
-import { supabase } from "../utils/supabaseClient"; // make sure this path matches your project
+import { mailOutline, personOutline, lockClosedOutline } from "ionicons/icons";
+import "./Register.css";
+import { supabase } from "../utils/supabaseClient";
 
 const Register: React.FC = () => {
   const router = useIonRouter();
@@ -50,50 +49,57 @@ const Register: React.FC = () => {
     setShowConfirmModal(true);
   };
 
-  // 🔹 Updated to use Supabase Auth + profiles table
   const confirmRegistration = async () => {
-  try {
-    // Create account in Supabase Auth
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      // Create account in Supabase Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (signUpError) throw signUpError;
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error("User not created in auth.");
 
-    // Insert into profiles table
-    const { error: insertError } = await supabase
-      .from("profiles")
-      .insert([
-  {
-    user_id: authData.user?.id,   // match your table column
-    username,
-    email,
-    role,
-    trees_planted: 0,
-    greenpoints: 0,               // since it's in your table
-  },
-])
+      // Insert into profiles table
+      const { error: insertError } = await supabase.from("profiles").insert([
+        {
+          user_id: authData.user.id,
+          username,
+          email,
+          role,
+          trees_planted: 0,
+          greenpoints: 0,
+        },
+      ]);
 
-    if (insertError) throw insertError;
+      if (insertError) throw insertError;
 
-    setShowConfirmModal(false);
+      // ✅ Insert into logs table (register action)
+      const { error: logError } = await supabase.from("logs").insert([
+        {
+          user_id: authData.user.id,
+          email: email,
+          action: "register",
+        },
+      ]);
 
-    presentToast({
-      message: `Registered as ${role.toUpperCase()}!`,
-      duration: 2000,
-      position: "top",
-      color: "success",
-    });
+      if (logError) throw logError;
 
-    router.push("/GreenPoints");
+      setShowConfirmModal(false);
 
-  } catch (err: any) {
-    setAlertMessage(err.message);
-    setShowAlert(true);
-  }
-};
+      presentToast({
+        message: `Registered as ${role.toUpperCase()}!`,
+        duration: 2000,
+        position: "top",
+        color: "success",
+      });
 
+      router.push("/GreenPoints");
+    } catch (err: any) {
+      setAlertMessage(err.message);
+      setShowAlert(true);
+    }
+  };
 
   return (
     <IonPage>
@@ -103,7 +109,9 @@ const Register: React.FC = () => {
             <IonGrid>
               <IonRow>
                 <IonCol className="ion-text-center">
-                  <IonAvatar style={{ width: "100px", height: "100px", margin: "auto" }}>
+                  <IonAvatar
+                    style={{ width: "100px", height: "100px", margin: "auto" }}
+                  >
                     <img
                       src="https://marketplace.canva.com/ARZ8E/MAFmAUARZ8E/1/tl/canva-natural-leaf-icon.-100%25-naturals-vector-image-MAFmAUARZ8E.png"
                       alt="Avatar"
@@ -157,19 +165,24 @@ const Register: React.FC = () => {
               <IonIcon icon={lockClosedOutline} slot="start" />
             </IonInput>
 
-            <IonText style={{ display: "block", marginTop: "10px" }}>Select Your Role</IonText>
+            <IonText style={{ display: "block", marginTop: "10px" }}>
+              Select Your Role
+            </IonText>
             <IonSelect
               value={role}
               placeholder="Select Role"
               onIonChange={(e) => setRole(e.detail.value)}
             >
-              <IonSelectOption value="user">🌱 User (Tree Grower)</IonSelectOption>
-              <IonSelectOption value="validator">✅ Barangay Validator</IonSelectOption>
-              <IonSelectOption value="cenro">🏢 CENRO</IonSelectOption>
-              <IonSelectOption value="admin">🛠 Admin</IonSelectOption>
+              <IonSelectOption value="user">
+                🌱 User (Tree Grower)
+              </IonSelectOption>
             </IonSelect>
 
-            <IonButton onClick={handleRegister} expand="block" style={{ marginTop: "20px" }}>
+            <IonButton
+              onClick={handleRegister}
+              expand="block"
+              style={{ marginTop: "20px" }}
+            >
               Register
             </IonButton>
           </div>
@@ -186,12 +199,21 @@ const Register: React.FC = () => {
           <IonModal isOpen={showConfirmModal}>
             <IonContent className="ion-padding">
               <IonText>
-                Confirm registration for <strong>{username}</strong> as <strong>{role}</strong>?
+                Confirm registration for <strong>{username}</strong> as{" "}
+                <strong>{role}</strong>?
               </IonText>
-              <IonButton expand="full" color="success" onClick={confirmRegistration}>
+              <IonButton
+                expand="full"
+                color="success"
+                onClick={confirmRegistration}
+              >
                 Confirm & Register
               </IonButton>
-              <IonButton expand="full" color="danger" onClick={() => setShowConfirmModal(false)}>
+              <IonButton
+                expand="full"
+                color="danger"
+                onClick={() => setShowConfirmModal(false)}
+              >
                 Cancel
               </IonButton>
             </IonContent>

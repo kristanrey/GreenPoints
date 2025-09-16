@@ -4,26 +4,18 @@ import { IonPage, IonContent, IonSpinner } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
 import { useIonRouter } from "@ionic/react";
 
-// ✅ Shared redirect URL logic (same as Login.tsx)
 const getRedirectUrl = () => {
   if (typeof window !== "undefined") {
     const origin = window.location.origin;
-
-    // Local development
     if (origin.includes("localhost")) {
       return "http://localhost:8100/GreenPoints/oauth-callback";
     }
-
-    // GitHub Pages deployment
     if (origin.includes("github.io")) {
       return "https://kristanrey.github.io/GreenPoints/oauth-callback";
     }
   }
-
-  // Default fallback (local dev)
   return "http://localhost:8100/GreenPoints/oauth-callback";
 };
-
 const redirectUrl = getRedirectUrl();
 
 const OAuthCallback: React.FC = () => {
@@ -33,73 +25,69 @@ const OAuthCallback: React.FC = () => {
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        // ✅ Refresh session in case redirect happened
+        // Ensure session is ready
         await supabase.auth.getSession();
-
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           router.push("/GreenPoints/login");
           return;
         }
 
-        // ✅ Fetch profile by user_id
-        const { data: profile, error } = await supabase
+        // Check profile
+        const { data: profile } = await supabase
           .from("profiles")
           .select("*")
           .eq("user_id", user.id)
           .single();
 
-        if (error && error.code !== "PGRST116") {
-          console.error("Profile fetch error:", error);
-        }
+        let finalProfile = profile;
 
-        // ✅ If no profile row, insert it
         if (!profile) {
-          const { error: insertError } = await supabase.from("profiles").insert([
-            {
-              user_id: user.id,
-              email: user.email,
-              username: null, // force user to set later
-              role: "User",
-              trees_planted: 0,
-              greenpoints: 0,
-            },
-          ]);
-
-          if (insertError) {
-            console.error("Profile insert error:", insertError);
-            router.push("/GreenPoints/login");
-            return;
-          }
-
-          router.push("/GreenPoints/set-username");
-          return;
+          const { data: newProfile } = await supabase
+            .from("profiles")
+            .insert([
+              {
+                user_id: user.id,
+                email: user.email,
+                username: null,
+                role: "User",
+                trees_planted: 0,
+                greenpoints: 0,
+              },
+            ])
+            .select()
+            .single();
+          finalProfile = newProfile;
         }
 
-        // ✅ If profile exists but username missing → redirect to set username
-        if (!profile.username) {
-          router.push("/GreenPoints/set-username");
-          return;
-        }
-
-        // ✅ Save user to localStorage
+        // Save locally
         localStorage.setItem(
           "currentUser",
           JSON.stringify({
             id: user.id,
-            name: profile.username,
+            name: finalProfile?.username || user.email,
             email: user.email,
-            role: profile.role || "User",
-            treesPlanted: profile.trees_planted || 0,
-            greenpoints: profile.greenpoints || 0,
+            role: finalProfile?.role || "User",
+            treesPlanted: finalProfile?.trees_planted || 0,
+            greenpoints: finalProfile?.greenpoints || 0,
           })
         );
 
-        // ✅ Go to dashboard
-        router.push("/GreenPoints/userdashboard");
+        // ✅ Avoid duplicate log (set flag in sessionStorage)
+        const logKey = `oauthLog-${user.id}`;
+        if (!sessionStorage.getItem(logKey)) {
+          await supabase.from("logs").insert([
+            { user_id: user.id, email: user.email, action: "login" },
+          ]);
+          sessionStorage.setItem(logKey, "true");
+        }
+
+        // If username is empty, force set
+        if (!finalProfile?.username) {
+          router.push("/GreenPoints/set-username");
+        } else {
+          router.push("/GreenPoints/userdashboard");
+        }
       } catch (err) {
         console.error("OAuth handling error:", err);
         router.push("/GreenPoints/login");

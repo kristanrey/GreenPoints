@@ -1,144 +1,183 @@
-import React, { useEffect, useState } from "react";
+// src/pages/Streak.tsx
+import React, { useState, useEffect } from "react";
 import {
   IonPage,
   IonContent,
-  IonCard,
-  IonCardContent,
   IonText,
   IonGrid,
   IonRow,
   IonCol,
-  IonSpinner,
-  IonToast,
+  IonCard,
+  IonCardContent,
+  IonIcon,
 } from "@ionic/react";
-import { supabase } from "../utils/supabaseClient"; // adjust path
-import "./Streak.css";
+import { supabase } from "../utils/supabaseClient";
+import { checkmarkCircle } from "ionicons/icons";
 
-interface StreakData {
-  current_streak: number;
-  best_streak: number;
-  days_active: string[];
-}
+const Streak: React.FC = () => {
+  const [today, setToday] = useState(new Date());
+  const [completedDays, setCompletedDays] = useState<number[]>([]);
+  const [points, setPoints] = useState<number>(0);
 
-const StreakDisplay: React.FC = () => {
-  const [streak, setStreak] = useState<StreakData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [toastMessage, setToastMessage] = useState("");
-
-  const weekDays = ["F", "Sa", "Su", "M", "Tu", "W", "Th"];
-
+  // Update "today" in real time (every minute)
   useEffect(() => {
-    const fetchStreak = async () => {
-      setLoading(true);
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+    const timer = setInterval(() => setToday(new Date()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-        if (!user) {
-          setToastMessage("No user logged in.");
-          setLoading(false);
-          return;
-        }
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0 = Jan
+  const monthName = today.toLocaleString("default", { month: "long" });
+  const dayToday = today.getDate();
 
-        const { data, error } = await supabase
-          .from("user_streaks")
-          .select("current_streak, best_streak, days_active")
-          .eq("user_id", user.id)
-          .single();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
 
-        if (error) throw error;
+  // Fetch login logs for current month
+  useEffect(() => {
+    const fetchLogs = async () => {
+      const startOfMonth = new Date(year, month, 1).toISOString();
+      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
-        setStreak(data);
-      } catch (err: any) {
-        console.error("Error fetching streak:", err.message);
-        setToastMessage("Error loading streak data.");
-      } finally {
-        setLoading(false);
+      const { data, error } = await supabase
+        .from("logs")
+        .select("created_at, action")
+        .gte("created_at", startOfMonth)
+        .lte("created_at", endOfMonth)
+        .eq("action", "login");
+
+      if (error) {
+        console.error("Error fetching logs:", error);
+        return;
       }
+
+      // Extract unique days where login happened
+      const days = Array.from(
+        new Set(data.map((log) => new Date(log.created_at).getDate()))
+      ).sort((a, b) => a - b);
+
+      setCompletedDays(days);
+
+      // Calculate points
+      let totalPoints = 0;
+      let streakBonus = 0;
+
+      for (let i = 0; i < days.length; i++) {
+        totalPoints += 0.5; // base points
+        if (i > 0 && days[i] === days[i - 1] + 1) {
+          streakBonus += 0.1; // consecutive login bonus
+        }
+      }
+
+      setPoints(parseFloat((totalPoints + streakBonus).toFixed(1)));
     };
 
-    fetchStreak();
-  }, []);
+    fetchLogs();
+  }, [year, month]);
 
   return (
     <IonPage>
-      <IonContent className="ion-padding streak-content">
-        {loading ? (
-          <IonSpinner name="crescent" />
-        ) : streak ? (
-          <>
-            {/* Flame Streak Counter */}
-            <div className="streak-flame">
-              <div className="flame-icon">🔥</div>
-              <IonText color="warning" className="streak-number">
-                {streak.current_streak}
-              </IonText>
-              <IonText className="streak-text">day streak!</IonText>
-            </div>
+      <IonContent className="ion-padding ion-text-center">
+        {/* Header with flame and points */}
+        <div style={{ fontSize: "80px", color: "orange", display: "flex", justifyContent: "center", alignItems: "center" }}>
+          🔥
+          <IonText color="warning" style={{ marginLeft: "10px", fontSize: "24px", fontWeight: "bold" }}>
+            {points} pts
+          </IonText>
+        </div>
 
-            {/* Week Progress */}
-            <IonCard className="streak-card">
-              <IonCardContent>
-                <IonGrid>
-                  <IonRow className="day-row">
-                    {weekDays.map((day) => (
-                      <IonCol key={day} className="day-col">
-                        <div
-                          className={`day-circle ${
-                            streak.days_active.includes(day) ? "active" : ""
-                          }`}
-                        >
-                          ✓
+        <IonText color="warning">
+          <h1 style={{ fontSize: "36px", margin: 0 }}>
+            {monthName} {year}
+          </h1>
+        </IonText>
+        <IonText>
+          <h2 style={{ marginTop: "-10px" }}>Your streak calendar</h2>
+        </IonText>
+
+        {/* Calendar */}
+        <IonCard className="ion-padding">
+          <IonCardContent>
+            <IonGrid>
+              {/* Weekday headers */}
+              <IonRow>
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                  <IonCol key={day} className="ion-text-center">
+                    <IonText style={{ fontWeight: "bold" }}>{day}</IonText>
+                  </IonCol>
+                ))}
+              </IonRow>
+
+              {/* Calendar days */}
+              {Array.from({
+                length: Math.ceil((daysInMonth + firstDay) / 7),
+              }).map((_, rowIndex) => (
+                <IonRow key={rowIndex}>
+                  {Array.from({ length: 7 }).map((_, colIndex) => {
+                    const dayNumber =
+                      rowIndex * 7 + colIndex - firstDay + 1;
+
+                    if (dayNumber < 1 || dayNumber > daysInMonth) {
+                      return <IonCol key={colIndex}></IonCol>; // empty cell
+                    }
+
+                    const isToday = dayNumber === dayToday;
+                    const isCompleted = completedDays.includes(dayNumber);
+
+                    return (
+                      <IonCol key={dayNumber} className="ion-text-center">
+                        <div style={{ position: "relative", height: "30px" }}>
+                          {isCompleted ? (
+                            <IonIcon
+                              icon={checkmarkCircle}
+                              style={{ fontSize: "24px", color: "orange" }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "20px",
+                                height: "20px",
+                                borderRadius: "50%",
+                                border: isToday
+                                  ? "2px solid orange"
+                                  : "2px solid lightgray",
+                                margin: "0 auto",
+                              }}
+                            ></div>
+                          )}
                         </div>
-                        <IonText className="day-label">{day}</IonText>
+                        <IonText>
+                          <p
+                            style={{
+                              margin: "4px 0 0 0",
+                              fontSize: "12px",
+                              fontWeight: isToday ? "bold" : "normal",
+                              color: isToday ? "orange" : "inherit",
+                            }}
+                          >
+                            {dayNumber}
+                          </p>
+                        </IonText>
                       </IonCol>
-                    ))}
-                  </IonRow>
-                </IonGrid>
-                <IonText className="streak-note">
-                  A <span className="highlight">streak</span> counts how many days
-                  you’ve practiced in a row
-                </IonText>
-              </IonCardContent>
-            </IonCard>
+                    );
+                  })}
+                </IonRow>
+              ))}
+            </IonGrid>
+          </IonCardContent>
+        </IonCard>
 
-            {/* Streak Table */}
-            <IonCard className="streak-table">
-              <IonCardContent>
-                <IonText className="table-title">Streak Stats</IonText>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Current Streak</th>
-                      <th>Best Streak</th>
-                      <th>Total Active Days</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{streak.current_streak} days</td>
-                      <td>{streak.best_streak} days</td>
-                      <td>{streak.days_active.length} days</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </IonCardContent>
-            </IonCard>
-          </>
-        ) : (
-          <IonText>No streak data found.</IonText>
-        )}
-
-        <IonToast
-          isOpen={!!toastMessage}
-          message={toastMessage}
-          duration={2000}
-          onDidDismiss={() => setToastMessage("")}
-        />
+        {/* Caption */}
+        <IonText>
+          <p>
+            ✅ Check = logged in that day.  
+            🔲 Orange border = today.  
+            🔥 Points = +0.5 daily, +0.1 per streak.
+          </p>
+        </IonText>
       </IonContent>
     </IonPage>
   );
 };
 
-export default StreakDisplay;
+export default Streak;

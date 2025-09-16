@@ -160,11 +160,41 @@ const UserDashboard: React.FC = () => {
   }, [userId]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setFeedback("👋 Logged out successfully!");
-    setShowToast(true);
-    setTimeout(() => navigateTo("/GreenPoints/login"), 1500);
-  };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    // Find the latest login record for this user
+    const { data: lastLog, error: fetchError } = await supabase
+      .from("logs")
+      .select("logs_id")
+      .eq("user_id", user.id)
+      .eq("action", "login")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!fetchError && lastLog) {
+      // Update it with logout_time
+      const { error: updateError } = await supabase
+        .from("logs")
+        .update({ logout_time: new Date().toISOString() })
+        .eq("logs_id", lastLog.logs_id);
+
+      if (updateError) {
+        console.error("❌ Error updating logout time:", updateError);
+      }
+    }
+  }
+
+  await supabase.auth.signOut();
+
+  setFeedback("👋 Logged out successfully!");
+  setShowToast(true);
+  setTimeout(() => navigateTo("/GreenPoints/login"), 1500);
+};
+
 
   if (loading) {
     return (
@@ -227,7 +257,7 @@ const UserDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="action-buttons">
-          <IonButton expand="block" className="dashboard-button" color="tertiary" onClick={() => navigateTo("/GreenPoints/status")}>
+          <IonButton expand="block" className="dashboard-button" color="tertiary" onClick={() => navigateTo("/GreenPoints/streak")}>
             <IonIcon icon={podium} slot="start" />
             Monitor Status
           </IonButton>
