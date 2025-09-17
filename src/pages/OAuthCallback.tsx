@@ -1,3 +1,4 @@
+// src/pages/OAuthCallback.tsx
 import { useEffect, useState } from "react";
 import { IonPage, IonContent, IonSpinner, useIonToast } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
@@ -8,17 +9,19 @@ const OAuthCallback: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [presentToast] = useIonToast();
 
-  // RLS-safe log insertion
-  const insertLoginLog = async (userId: string, email: string) => {
+  const insertLoginLogOnce = async (userId: string, email: string) => {
     try {
-      await supabase.from("logs").insert([
-        {
-          user_id: userId,
-          email,
-          action: "login",
-          // logs_id and login_time handled by DB defaults
-        },
-      ]);
+      const { data: lastLog } = await supabase
+        .from("logs")
+        .select("*")
+        .eq("user_id", userId)
+        .order("login_time", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!lastLog || (new Date().getTime() - new Date(lastLog.login_time).getTime() > 10000)) {
+        await supabase.from("logs").insert([{ user_id: userId, email, action: "login" }]);
+      }
     } catch (err) {
       console.error("Log insert error:", err);
     }
@@ -27,8 +30,7 @@ const OAuthCallback: React.FC = () => {
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) console.error("Session error:", sessionError);
+        const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.user) {
           router.push("/GreenPoints/login");
@@ -37,7 +39,7 @@ const OAuthCallback: React.FC = () => {
 
         const user = session.user;
 
-        // Fetch existing profile
+        // Fetch or create profile
         const { data: profile } = await supabase
           .from("profiles")
           .select("*")
@@ -46,7 +48,6 @@ const OAuthCallback: React.FC = () => {
 
         let finalProfile = profile;
 
-        // If no profile exists, create one
         if (!profile) {
           const { data: newProfile } = await supabase
             .from("profiles")
@@ -62,7 +63,6 @@ const OAuthCallback: React.FC = () => {
             ])
             .select()
             .single();
-
           finalProfile = newProfile;
         }
 
@@ -80,7 +80,7 @@ const OAuthCallback: React.FC = () => {
         );
 
         // Insert login log exactly once
-        await insertLoginLog(user.id, user.email || "");
+        await insertLoginLogOnce(user.id, user.email || "");
 
         presentToast({
           message: "Login Success!",
@@ -89,7 +89,6 @@ const OAuthCallback: React.FC = () => {
           color: "success",
         });
 
-        // Redirect user
         if (!finalProfile?.username) {
           router.push("/GreenPoints/set-username");
         } else {
