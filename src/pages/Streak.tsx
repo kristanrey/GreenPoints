@@ -20,7 +20,7 @@ const Streak: React.FC = () => {
   const [points, setPoints] = useState<number>(0);
   const [streakDays, setStreakDays] = useState<number>(0);
 
-  // Update "today" in real time (every minute)
+  // Update "today" every minute
   useEffect(() => {
     const timer = setInterval(() => setToday(new Date()), 60 * 1000);
     return () => clearInterval(timer);
@@ -30,64 +30,45 @@ const Streak: React.FC = () => {
   const month = today.getMonth(); // 0 = Jan
   const monthName = today.toLocaleString("default", { month: "long" });
   const dayToday = today.getDate();
-
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
 
-  // Fetch streak (points + streak days)
+  // Fetch streak data from user_streaks table
   useEffect(() => {
-    const fetchStreak = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+    const fetchUserStreaks = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from("streak")
-        .select("streak_days, total_points")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching streak:", error);
-        return;
-      }
-
-      setPoints(data?.total_points || 0);
-      setStreakDays(data?.streak_days || 0);
-    };
-
-    fetchStreak();
-  }, []);
-
-  // Fetch login logs for current month (calendar checkmarks)
-  useEffect(() => {
-    const fetchLogs = async () => {
       const startOfMonth = new Date(year, month, 1).toISOString();
       const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
+      // Fetch all logins for this month
       const { data, error } = await supabase
-        .from("logs")
-        .select("created_at, action")
-        .gte("created_at", startOfMonth)
-        .lte("created_at", endOfMonth)
-        .eq("action", "login");
+        .from("user_streaks")
+        .select("login_date, points_earned, streak_day")
+        .eq("user_id", user.id)
+        .gte("login_date", startOfMonth)
+        .lte("login_date", endOfMonth);
 
       if (error) {
-        console.error("Error fetching logs:", error);
+        console.error("Error fetching user streaks:", error);
         return;
       }
 
-      // Extract unique days where login happened
-      const days = Array.from(
-        new Set(data.map((log) => new Date(log.created_at).getDate()))
-      ).sort((a, b) => a - b);
-
+      // Map login dates to days of month
+      const days = data.map((entry) => new Date(entry.login_date).getDate()).sort((a, b) => a - b);
       setCompletedDays(days);
+
+      // Compute total points and current streak
+      const totalPoints = data.reduce((acc, entry) => acc + (entry.points_earned || 0), 0);
+      setPoints(totalPoints);
+
+      // Current streak = max streak_day for this month
+      const maxStreakDay = data.length ? Math.max(...data.map((entry) => entry.streak_day || 0)) : 0;
+      setStreakDays(maxStreakDay);
     };
 
-    fetchLogs();
+    fetchUserStreaks();
   }, [year, month]);
 
   return (
@@ -108,13 +89,13 @@ const Streak: React.FC = () => {
             color="warning"
             style={{ marginLeft: "10px", fontSize: "24px", fontWeight: "bold" }}
           >
-            {points} pts
+            {points.toFixed(1)} pts
           </IonText>
         </div>
+
         <IonText>
           <p style={{ marginTop: "-10px", fontSize: "18px" }}>
-            Current streak: <strong>{streakDays}</strong> day
-            {streakDays !== 1 ? "s" : ""}
+            Current streak: <strong>{streakDays}</strong> day{streakDays !== 1 ? "s" : ""}
           </p>
         </IonText>
 
@@ -142,17 +123,11 @@ const Streak: React.FC = () => {
               </IonRow>
 
               {/* Calendar days */}
-              {Array.from({
-                length: Math.ceil((daysInMonth + firstDay) / 7),
-              }).map((_, rowIndex) => (
+              {Array.from({ length: Math.ceil((daysInMonth + firstDay) / 7) }).map((_, rowIndex) => (
                 <IonRow key={rowIndex}>
                   {Array.from({ length: 7 }).map((_, colIndex) => {
-                    const dayNumber =
-                      rowIndex * 7 + colIndex - firstDay + 1;
-
-                    if (dayNumber < 1 || dayNumber > daysInMonth) {
-                      return <IonCol key={colIndex}></IonCol>; // empty cell
-                    }
+                    const dayNumber = rowIndex * 7 + colIndex - firstDay + 1;
+                    if (dayNumber < 1 || dayNumber > daysInMonth) return <IonCol key={colIndex}></IonCol>;
 
                     const isToday = dayNumber === dayToday;
                     const isCompleted = completedDays.includes(dayNumber);
@@ -161,19 +136,14 @@ const Streak: React.FC = () => {
                       <IonCol key={dayNumber} className="ion-text-center">
                         <div style={{ position: "relative", height: "30px" }}>
                           {isCompleted ? (
-                            <IonIcon
-                              icon={checkmarkCircle}
-                              style={{ fontSize: "24px", color: "orange" }}
-                            />
+                            <IonIcon icon={checkmarkCircle} style={{ fontSize: "24px", color: "orange" }} />
                           ) : (
                             <div
                               style={{
                                 width: "20px",
                                 height: "20px",
                                 borderRadius: "50%",
-                                border: isToday
-                                  ? "2px solid orange"
-                                  : "2px solid lightgray",
+                                border: isToday ? "2px solid orange" : "2px solid lightgray",
                                 margin: "0 auto",
                               }}
                             ></div>
@@ -203,10 +173,7 @@ const Streak: React.FC = () => {
         {/* Caption */}
         <IonText>
           <p>
-            ✅ Check = logged in that day.  
-            🔲 Orange border = today.  
-            🔥 Points = stored in streak table.  
-            +0.5 per login, +0.1 per consecutive day.
+            ✅ Check = logged in that day. 🔲 Orange border = today. 🔥 Points = stored in user_streaks table. +0.5 per login, +0.1 per consecutive day.
           </p>
         </IonText>
       </IonContent>
