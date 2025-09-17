@@ -70,7 +70,7 @@ const AdminLogs: React.FC = () => {
   }, []);
 
   return (
-    <IonPage>
+    <IonPage>   
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>User Logs</IonTitle>

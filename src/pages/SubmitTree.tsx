@@ -132,11 +132,21 @@ const SubmitNewTree: React.FC = () => {
       if (userErr || !user) throw new Error("You must be logged in");
 
       const blob = await fetch(photoDataUrl).then((r) => r.blob());
-      const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
+      // ✅ get username first
+const { data: profileData } = await supabase
+  .from("profiles")
+  .select("username")
+  .eq("user_id", user.id)
+  .single();
 
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(filename, blob, { contentType: "image/jpeg" });
+const username = profileData?.username || user.id; // fallback if username missing
+
+const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
+
+const { error: upErr } = await supabase.storage
+  .from("greenpoints")
+  .upload(filename, blob, { contentType: "image/jpeg" });
+
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);

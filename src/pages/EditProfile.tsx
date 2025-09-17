@@ -82,18 +82,23 @@ const ProfilePage: React.FC = () => {
 
     const file = event.target.files[0];
     const fileExt = file.name.split(".").pop();
-    const filePath = `profiles/${userId}/avatar.${fileExt}`;
+   // ✅ fetch username for folder name
+const { data: profileData } = await supabase
+  .from("profiles")
+  .select("username")
+  .eq("user_id", userId)
+  .single();
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, { upsert: true });
+const username = profileData?.username || userId;
 
-    if (uploadError) {
-      alert("Error uploading image: " + uploadError.message);
-      return;
-    }
+const filePath = `${username}/profile_image/avatar.${fileExt}`;
 
-    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
+const { error: uploadError } = await supabase.storage
+  .from("greenpoints")
+  .upload(filePath, file, { upsert: true });
+
+const { data: urlData } = supabase.storage.from("greenpoints").getPublicUrl(filePath);
+
 
     if (urlData?.publicUrl) {
       setAvatarUrl(urlData.publicUrl);
