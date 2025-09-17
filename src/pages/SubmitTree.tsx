@@ -17,7 +17,7 @@ import {
   IonCardHeader,
   IonCardTitle,
 } from "@ionic/react";
-import { Camera, CameraResultType, CameraSource, CameraDirection } from "@capacitor/camera";
+import { Camera, CameraSource, CameraDirection, CameraResultType } from "@capacitor/camera";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
@@ -85,17 +85,22 @@ const SubmitNewTree: React.FC = () => {
     try {
       const image = await Camera.getPhoto({
         source,
-        resultType: CameraResultType.DataUrl,
+        resultType: CameraResultType.Uri,
         quality: 85,
         correctOrientation: true,
         direction: useFrontCamera ? CameraDirection.Front : CameraDirection.Rear,
       });
 
-      if (!image || !image.dataUrl) return show("Failed to capture photo.");
+      // Use webPath if path is undefined (Web)
+      const path = image.path || image.webPath;
+      if (!path) return show("Failed to capture photo.");
 
-      setPhotoDataUrl(image.dataUrl);
+      // Convert native file path to browser-safe URL
+      const photoUrl = Capacitor.convertFileSrc(path);
+      setPhotoDataUrl(photoUrl); // preview
 
-      const blob = dataUrlToBlob(image.dataUrl);
+      // Fetch blob from original path for upload and EXIF
+      const blob = await fetch(path).then((r) => r.blob());
       await extractExif(blob);
 
       if (!coords) {
@@ -105,16 +110,6 @@ const SubmitNewTree: React.FC = () => {
       console.error(err);
       show("Camera canceled or unavailable.");
     }
-  };
-
-  const dataUrlToBlob = (dataUrl: string) => {
-    const [meta, b64] = dataUrl.split(",");
-    const mime = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
-    const binStr = atob(b64);
-    const len = binStr.length;
-    const arr = new Uint8Array(len);
-    for (let i = 0; i < len; i++) arr[i] = binStr.charCodeAt(i);
-    return new Blob([arr], { type: mime });
   };
 
   const handleSubmit = async () => {
@@ -136,10 +131,9 @@ const SubmitNewTree: React.FC = () => {
       } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
-      const blob = dataUrlToBlob(photoDataUrl);
+      const blob = await fetch(photoDataUrl).then((r) => r.blob());
       const filename = `profiles/${user.id}/trees/${Date.now()}.jpg`;
 
-      // Upload image
       const { error: upErr } = await supabase.storage
         .from("avatars")
         .upload(filename, blob, { contentType: "image/jpeg" });
@@ -148,7 +142,6 @@ const SubmitNewTree: React.FC = () => {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // Insert tree submission
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -166,14 +159,11 @@ const SubmitNewTree: React.FC = () => {
       ]);
       if (dbErr) throw dbErr;
 
-      // ✅ Update treesPlanted dynamically
-      const { count, error: countErr } = await supabase
+      const { count } = await supabase
         .from("tree_submissions")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id);
-      if (countErr) console.warn("Could not count trees:", countErr);
 
-      // Optional: update user's treesPlanted column
       await supabase.from("users").update({ treesPlanted: count }).eq("id", user.id);
 
       show("✅ Tree submitted successfully! Awaiting validation.");
@@ -272,11 +262,15 @@ const SubmitNewTree: React.FC = () => {
               </IonText>
             )}
 
+            {/* EXIF info with safe date rendering */}
             {exifData && (
               <IonText>
                 <p className="ion-margin-top">
                   📷 <strong>Camera:</strong> {exifData.Make || "Unknown"} {exifData.Model || ""} <br />
-                  🕒 <strong>Taken:</strong> {exifData.DateTimeOriginal || "Not available"}
+                  🕒 <strong>Taken:</strong>{" "}
+                  {exifData.DateTimeOriginal
+                    ? new Date(exifData.DateTimeOriginal).toLocaleString()
+                    : "Not available"}
                 </p>
               </IonText>
             )}
