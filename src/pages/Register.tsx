@@ -15,7 +15,7 @@ import {
   IonSelectOption,
   useIonRouter,
   useIonToast,
-  IonIcon
+  IonIcon,
 } from "@ionic/react";
 import { useState } from "react";
 import { mailOutline, personOutline, lockClosedOutline } from "ionicons/icons";
@@ -51,7 +51,6 @@ const Register: React.FC = () => {
 
   const confirmRegistration = async () => {
     try {
-      // Create account in Supabase Auth
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -60,7 +59,6 @@ const Register: React.FC = () => {
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error("User not created in auth.");
 
-      // Insert into profiles table
       const { error: insertError } = await supabase.from("profiles").insert([
         {
           user_id: authData.user.id,
@@ -71,18 +69,17 @@ const Register: React.FC = () => {
           greenpoints: 0,
         },
       ]);
-
       if (insertError) throw insertError;
 
-      // ✅ Insert into logs table (register action)
+      // Insert register log
       const { error: logError } = await supabase.from("logs").insert([
         {
           user_id: authData.user.id,
           email: email,
           action: "register",
+          logout_time: null,
         },
       ]);
-
       if (logError) throw logError;
 
       setShowConfirmModal(false);
@@ -94,7 +91,7 @@ const Register: React.FC = () => {
         color: "success",
       });
 
-      router.push("/GreenPoints");
+      router.push("/GreenPoints/userdashboard");
     } catch (err: any) {
       setAlertMessage(err.message);
       setShowAlert(true);
@@ -122,7 +119,6 @@ const Register: React.FC = () => {
               </IonRow>
             </IonGrid>
 
-            {/* 📧 Email */}
             <IonInput
               className="custom-input"
               type="email"
@@ -133,7 +129,6 @@ const Register: React.FC = () => {
               <IonIcon icon={mailOutline} slot="start" />
             </IonInput>
 
-            {/* 👤 Username */}
             <IonInput
               className="custom-input"
               value={username}
@@ -143,7 +138,6 @@ const Register: React.FC = () => {
               <IonIcon icon={personOutline} slot="start" />
             </IonInput>
 
-            {/* 🔒 Password */}
             <IonInput
               className="custom-input"
               type="password"
@@ -154,7 +148,6 @@ const Register: React.FC = () => {
               <IonIcon icon={lockClosedOutline} slot="start" />
             </IonInput>
 
-            {/* 🔒 Confirm Password */}
             <IonInput
               className="custom-input"
               type="password"
@@ -173,9 +166,7 @@ const Register: React.FC = () => {
               placeholder="Select Role"
               onIonChange={(e) => setRole(e.detail.value)}
             >
-              <IonSelectOption value="user">
-                🌱 User (Tree Grower)
-              </IonSelectOption>
+              <IonSelectOption value="user">🌱 User (Tree Grower)</IonSelectOption>
             </IonSelect>
 
             <IonButton
@@ -187,7 +178,6 @@ const Register: React.FC = () => {
             </IonButton>
           </div>
 
-          {/* Alert */}
           <IonAlert
             isOpen={showAlert}
             message={alertMessage}
@@ -195,7 +185,6 @@ const Register: React.FC = () => {
             onDidDismiss={() => setShowAlert(false)}
           />
 
-          {/* Confirmation Modal */}
           <IonModal isOpen={showConfirmModal}>
             <IonContent className="ion-padding">
               <IonText>

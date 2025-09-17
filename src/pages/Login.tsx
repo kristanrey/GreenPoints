@@ -1,4 +1,3 @@
-// src/pages/Login.tsx
 import "./login.css";
 import {
   IonAvatar,
@@ -10,14 +9,13 @@ import {
   IonAlert,
   IonItem,
   IonIcon,
+  useIonToast,
+  useIonRouter,
 } from "@ionic/react";
 import { mailOutline, lockClosedOutline } from "ionicons/icons";
 import { useState } from "react";
 import { supabase } from "../utils/supabaseClient";
-import "./Logs.css";
-import { useIonRouter, useIonToast } from "@ionic/react";
 
-// Redirect URL helper
 const getRedirectUrl = () => {
   if (typeof window !== "undefined") {
     const origin = window.location.origin;
@@ -41,7 +39,6 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Email/Password Login
   const doLogin = async () => {
     if (!email || !password) {
       setAlertMessage("Please fill in both fields.");
@@ -69,14 +66,19 @@ const Login: React.FC = () => {
         return;
       }
 
-      // ✅ Fetch profile
-      const { data: fetchedProfile } = await supabase
+      // Fetch profile
+      const { data: fetchedProfile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", authData.user.id)
         .single();
 
-      // ✅ Save user locally
+      if (profileError && profileError.code !== "PGRST116") {
+        // PGRST116 = no rows found, safe to ignore
+        console.error("Profile fetch error:", profileError);
+      }
+
+      // Save user locally
       localStorage.setItem(
         "currentUser",
         JSON.stringify({
@@ -89,10 +91,21 @@ const Login: React.FC = () => {
         })
       );
 
-      // ✅ Insert login log (always once for password)
-      await supabase.from("logs").insert([
-        { user_id: authData.user.id, email: authData.user.email, action: "login" },
-      ]);
+      // Insert login log with proper error logging
+      const { data: logData, error: logError } = await supabase
+        .from("logs")
+        .insert([
+          {
+            user_id: authData.user.id,
+            email: authData.user.email,
+            action: "login",
+            logout_time: null,
+          },
+        ])
+        .select(); // <- ensure returned row is visible
+
+      if (logError) console.error("Log insert error:", logError);
+      else console.log("Log inserted:", logData);
 
       presentToast({
         message: "Login Success!",
@@ -103,8 +116,9 @@ const Login: React.FC = () => {
 
       router.push("/GreenPoints/userdashboard");
     } catch (err: any) {
-      setAlertMessage(err.message);
+      setAlertMessage(err.message || "Login failed");
       setShowAlert(true);
+      console.error("Login error:", err);
     }
   };
 
@@ -121,6 +135,7 @@ const Login: React.FC = () => {
     } catch (err: any) {
       setAlertMessage("Google Sign-In failed: " + (err?.message || "Unknown error"));
       setShowAlert(true);
+      console.error("Google login error:", err);
     }
   };
 
@@ -137,6 +152,7 @@ const Login: React.FC = () => {
     } catch (err: any) {
       setAlertMessage("Facebook Sign-In failed: " + (err?.message || "Unknown error"));
       setShowAlert(true);
+      console.error("Facebook login error:", err);
     }
   };
 
@@ -156,7 +172,6 @@ const Login: React.FC = () => {
               />
             </IonAvatar>
 
-            {/* Email */}
             <IonItem className="custom-input" lines="none">
               <IonIcon icon={mailOutline} slot="start" />
               <IonInput
@@ -167,7 +182,6 @@ const Login: React.FC = () => {
               />
             </IonItem>
 
-            {/* Password */}
             <IonItem className="custom-input" lines="none">
               <IonIcon icon={lockClosedOutline} slot="start" />
               <IonInput
@@ -184,7 +198,6 @@ const Login: React.FC = () => {
 
             <IonText className="login-or">or</IonText>
 
-            {/* OAuth buttons */}
             <div className="oauth-buttons">
               <div onClick={loginWithGoogle} className="oauth-icon" role="button">
                 <img

@@ -17,6 +17,7 @@ import {
   IonImg,
   IonCardHeader,
   IonCardTitle,
+  useIonRouter,
 } from "@ionic/react";
 import {
   home,
@@ -44,9 +45,9 @@ const UserDashboard: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
-
-  // News state
   const [newsList, setNewsList] = useState<any[]>([]);
+
+  const router = useIonRouter(); // Ionic router for redirect
 
   // Fetch user data
   const fetchUserData = async () => {
@@ -165,12 +166,21 @@ const UserDashboard: React.FC = () => {
     };
   }, [userId]);
 
+  // --- Updated logout function ---
   const handleLogout = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (user) {
+      if (userError || !user) {
+        setFeedback("❌ No user logged in.");
+        setShowToast(true);
+        return;
+      }
+
+      // Update last login log
       const { data: lastLog } = await supabase
         .from("logs")
         .select("logs_id")
@@ -186,11 +196,23 @@ const UserDashboard: React.FC = () => {
           .update({ logout_time: new Date().toISOString() })
           .eq("logs_id", lastLog.logs_id);
       }
-    }
 
-    await supabase.auth.signOut();
-    setFeedback("👋 Logged out successfully!");
-    setShowToast(true);
+      // Sign out
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+
+      setFeedback("👋 Logged out successfully!");
+      setShowToast(true);
+
+      // Redirect to login
+      setTimeout(() => {
+        router.push("/GreenPoints/login", "forward", "replace");
+      }, 500);
+    } catch (error) {
+      console.error("Logout error:", error);
+      setFeedback("❌ Logout failed.");
+      setShowToast(true);
+    }
   };
 
   if (loading) {
