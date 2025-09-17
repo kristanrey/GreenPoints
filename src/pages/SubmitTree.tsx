@@ -132,24 +132,24 @@ const SubmitNewTree: React.FC = () => {
       if (userErr || !user) throw new Error("You must be logged in");
 
       const blob = await fetch(photoDataUrl).then((r) => r.blob());
-      // ✅ get username first
-const { data: profileData } = await supabase
-  .from("profiles")
-  .select("username")
-  .eq("user_id", user.id)
-  .single();
+      // get username first
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("user_id", user.id)
+        .single();
 
-const username = profileData?.username || user.id; // fallback if username missing
+      const username = profileData?.username || user.id; // fallback if username missing
+      const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
 
-const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
-
-const { error: upErr } = await supabase.storage
-  .from("greenpoints")
-  .upload(filename, blob, { contentType: "image/jpeg" });
-
+      // upload photo to greenpoints bucket
+      const { error: upErr } = await supabase.storage
+        .from("greenpoints")
+        .upload(filename, blob, { contentType: "image/jpeg" });
       if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
+      // get public URL from greenpoints bucket
+      const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
@@ -169,6 +169,7 @@ const { error: upErr } = await supabase.storage
       ]);
       if (dbErr) throw dbErr;
 
+      // update treesPlanted count
       const { count } = await supabase
         .from("tree_submissions")
         .select("id", { count: "exact", head: true })
@@ -272,7 +273,6 @@ const { error: upErr } = await supabase.storage
               </IonText>
             )}
 
-            {/* EXIF info with safe date rendering */}
             {exifData && (
               <IonText>
                 <p className="ion-margin-top">

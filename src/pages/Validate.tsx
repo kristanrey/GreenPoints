@@ -40,14 +40,10 @@ const ValidatePage: React.FC = () => {
   const [validatorName, setValidatorName] = useState("");
   const history = useHistory();
 
-  // ✅ Check validator access
   useEffect(() => {
     const checkValidatorAccess = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setToastMsg("⚠️ Please login as validator");
           setShowToast(true);
@@ -55,7 +51,6 @@ const ValidatePage: React.FC = () => {
           return;
         }
 
-        // Fetch validator info
         const { data: validator, error } = await supabase
           .from("validators")
           .select("validator_id, full_name")
@@ -70,8 +65,6 @@ const ValidatePage: React.FC = () => {
         }
 
         setValidatorName(validator.full_name);
-
-        // Load submissions after validator check
         fetchSubmissions();
       } catch (err: any) {
         setToastMsg(`Error: ${err.message}`);
@@ -83,31 +76,33 @@ const ValidatePage: React.FC = () => {
     checkValidatorAccess();
   }, [history]);
 
-  // 🔄 Fetch only pending submissions
   const fetchSubmissions = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("tree_submissions")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("tree_submissions")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      setToastMsg(`Error fetching submissions: ${error.message}`);
+      if (error) throw error;
+
+      // Parse EXIF JSON string
+      const parsedData = data?.map((sub: any) => ({
+        ...sub,
+        exif_metadata: sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null,
+      }));
+
+      setSubmissions(parsedData);
+    } catch (err: any) {
+      setToastMsg(`Error fetching submissions: ${err.message}`);
       setShowToast(true);
-    } else {
-      setSubmissions(data as Submission[]);
     }
     setLoading(false);
   };
 
-  // 🟢 Approve / ❌ Reject action (Updated: auto +30 points, accurate trees_planted)
-  const handleAction = async (
-    submission_id: number,
-    status: "approved" | "rejected"
-  ) => {
+  const handleAction = async (submission_id: number, status: "approved" | "rejected") => {
     try {
-      // 1. Update submission status only
       const { data: updated, error: submissionError } = await supabase
         .from("tree_submissions")
         .update({ status })
@@ -118,25 +113,20 @@ const ValidatePage: React.FC = () => {
       if (submissionError) throw submissionError;
 
       if (status === "approved" && updated?.user_id) {
-        // Fetch current profile stats
         const { data: profile, error: fetchError } = await supabase
           .from("profiles")
           .select("greenpoints")
           .eq("user_id", updated.user_id)
           .single();
-
         if (fetchError) throw fetchError;
 
-        // Count all approved submissions for this user
         const { count: approvedCount, error: countError } = await supabase
           .from("tree_submissions")
           .select("submission_id", { count: "exact", head: true })
           .eq("user_id", updated.user_id)
           .eq("status", "approved");
-
         if (countError) throw countError;
 
-        // Update profile: greenpoints +30, trees_planted = total approved submissions
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -144,17 +134,11 @@ const ValidatePage: React.FC = () => {
             trees_planted: approvedCount || 1,
           })
           .eq("user_id", updated.user_id);
-
         if (profileError) throw profileError;
       }
 
-      setToastMsg(
-        status === "approved"
-          ? "✅ Approved (+30 GreenPoints)"
-          : "❌ Rejected"
-      );
+      setToastMsg(status === "approved" ? "✅ Approved (+30 GreenPoints)" : "❌ Rejected");
       setShowToast(true);
-
       fetchSubmissions();
     } catch (err: any) {
       setToastMsg(`Error: ${err.message}`);
@@ -162,14 +146,12 @@ const ValidatePage: React.FC = () => {
     }
   };
 
-  // Helper: convert decimal to DMS
   const toDMS = (deg: number, type: "lat" | "lon") => {
     if (!deg) return "N/A";
     const d = Math.floor(Math.abs(deg));
     const m = Math.floor((Math.abs(deg) - d) * 60);
     const s = ((Math.abs(deg) - d - m / 60) * 3600).toFixed(2);
-    const dir =
-      type === "lat" ? (deg >= 0 ? "N" : "S") : deg >= 0 ? "E" : "W";
+    const dir = type === "lat" ? (deg >= 0 ? "N" : "S") : deg >= 0 ? "E" : "W";
     return `${d}° ${m}' ${s}" ${dir}`;
   };
 
@@ -177,18 +159,12 @@ const ValidatePage: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonButton
-            slot="start"
-            color="medium"
-            routerLink="/GreenPoints/validators"
-          >
+          <IonButton slot="start" color="medium" routerLink="/GreenPoints/validators">
             ← Go Back
           </IonButton>
           <IonTitle>Validate Trees</IonTitle>
           <IonButtons slot="end">
-            <IonButton fill="clear">
-              👤 {validatorName || "Loading..."}
-            </IonButton>
+            <IonButton fill="clear"> 👤 {validatorName || "Loading..."} </IonButton>
           </IonButtons>
         </IonToolbar>
       </IonHeader>
@@ -217,23 +193,28 @@ const ValidatePage: React.FC = () => {
                 >
                   {/* Left: Tree photo + buttons */}
                   <div style={{ textAlign: "center" }}>
-                    <IonImg
-                      src={sub.image_url}
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        maxWidth: "100%",
-                        maxHeight: "400px",
-                        objectFit: "contain",
-                        borderRadius: "8px",
-                        background: "#fafafa",
-                        padding: "8px",
-                      }}
-                    />
+                    {sub.image_url ? (
+                      <IonImg
+                        src={sub.image_url}
+                        style={{
+                          width: "100%",
+                          height: "auto",
+                          maxWidth: "100%",
+                          maxHeight: "400px",
+                          objectFit: "contain",
+                          borderRadius: "8px",
+                          background: "#fafafa",
+                          padding: "8px",
+                        }}
+                      />
+                    ) : (
+                      <p>📷 Image not available</p>
+                    )}
 
                     <p style={{ marginTop: "8px", fontStyle: "italic" }}>
                       {sub.tree_type || "Planted a new tree"}
                     </p>
+
                     {sub.status === "pending" && (
                       <div
                         style={{
@@ -246,18 +227,14 @@ const ValidatePage: React.FC = () => {
                         <IonButton
                           expand="block"
                           color="success"
-                          onClick={() =>
-                            handleAction(sub.submission_id, "approved")
-                          }
+                          onClick={() => handleAction(sub.submission_id, "approved")}
                         >
                           Approve
                         </IonButton>
                         <IonButton
                           expand="block"
                           color="medium"
-                          onClick={() =>
-                            handleAction(sub.submission_id, "rejected")
-                          }
+                          onClick={() => handleAction(sub.submission_id, "rejected")}
                         >
                           Reject
                         </IonButton>
@@ -275,59 +252,38 @@ const ValidatePage: React.FC = () => {
                       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
-                      EXIF Metadata
-                    </h4>
+                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>EXIF Metadata</h4>
                     <table style={{ width: "100%", fontSize: "14px" }}>
                       <tbody>
                         <tr>
+                          <td><b>Date taken</b></td>
+                          <td>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Device</b></td>
                           <td>
-                            <b>Date taken</b>
-                          </td>
-                          <td>
-                            {sub.exif_metadata?.DateTimeOriginal ||
-                              sub.date_planted}
+                            {sub.exif_metadata?.Make || "Unknown"}{" "}
+                            {sub.exif_metadata?.Model || ""}
                           </td>
                         </tr>
                         <tr>
-                          <td>
-                            <b>Device</b>
-                          </td>
-                          <td>
-                            {sub.exif_metadata?.Make}{" "}
-                            {sub.exif_metadata?.Model}
-                          </td>
+                          <td><b>GPS</b></td>
+                          <td>{sub.latitude}, {sub.longitude}</td>
                         </tr>
                         <tr>
-                          <td>
-                            <b>GPS</b>
-                          </td>
-                          <td>
-                            {sub.latitude}, {sub.longitude}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Orientation</b>
-                          </td>
+                          <td><b>Orientation</b></td>
                           <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td>
-                            <b>Exif version</b>
-                          </td>
+                          <td><b>Exif version</b></td>
                           <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td>
-                            <b>Latitude</b>
-                          </td>
+                          <td><b>Latitude</b></td>
                           <td>{toDMS(sub.latitude, "lat")}</td>
                         </tr>
                         <tr>
-                          <td>
-                            <b>Longitude</b>
-                          </td>
+                          <td><b>Longitude</b></td>
                           <td>{toDMS(sub.longitude, "lon")}</td>
                         </tr>
                       </tbody>
