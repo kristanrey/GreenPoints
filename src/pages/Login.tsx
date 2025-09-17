@@ -39,6 +39,21 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // RLS-safe log insertion
+  const insertLoginLog = async (userId: string, email: string) => {
+    try {
+      await supabase.from("logs").insert([
+        {
+          user_id: userId,
+          email,
+          action: "login",
+        },
+      ]);
+    } catch (err) {
+      console.error("Log insert error:", err);
+    }
+  };
+
   const doLogin = async () => {
     if (!email || !password) {
       setAlertMessage("Please fill in both fields.");
@@ -49,15 +64,12 @@ const Login: React.FC = () => {
     try {
       localStorage.removeItem("currentUser");
 
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
         if (authError.message.toLowerCase().includes("email not confirmed")) {
           setAlertMessage("Please confirm your email before logging in.");
-        } else if (
-          authError.message.toLowerCase().includes("invalid login credentials")
-        ) {
+        } else if (authError.message.toLowerCase().includes("invalid login credentials")) {
           setAlertMessage("Invalid email or password.");
         } else {
           setAlertMessage(authError.message);
@@ -66,46 +78,35 @@ const Login: React.FC = () => {
         return;
       }
 
+      const user = data.user;
+      if (!user) {
+        setAlertMessage("Login failed: no user returned");
+        setShowAlert(true);
+        return;
+      }
+
       // Fetch profile
-      const { data: fetchedProfile, error: profileError } = await supabase
+      const { data: fetchedProfile } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", authData.user.id)
+        .eq("user_id", user.id)
         .single();
-
-      if (profileError && profileError.code !== "PGRST116") {
-        // PGRST116 = no rows found, safe to ignore
-        console.error("Profile fetch error:", profileError);
-      }
 
       // Save user locally
       localStorage.setItem(
         "currentUser",
         JSON.stringify({
-          id: authData.user.id,
+          id: user.id,
           name: fetchedProfile?.username || email,
-          email: authData.user.email,
+          email: user.email,
           role: fetchedProfile?.role || "User",
           treesPlanted: fetchedProfile?.trees_planted || 0,
           greenpoints: fetchedProfile?.greenpoints || 0,
         })
       );
 
-      // Insert login log with proper error logging
-      const { data: logData, error: logError } = await supabase
-        .from("logs")
-        .insert([
-          {
-            user_id: authData.user.id,
-            email: authData.user.email,
-            action: "login",
-            logout_time: null,
-          },
-        ])
-        .select(); // <- ensure returned row is visible
-
-      if (logError) console.error("Log insert error:", logError);
-      else console.log("Log inserted:", logData);
+      // Insert login log once
+      await insertLoginLog(user.id, user.email || "");
 
       presentToast({
         message: "Login Success!",

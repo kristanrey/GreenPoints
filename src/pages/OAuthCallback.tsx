@@ -8,10 +8,25 @@ const OAuthCallback: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [presentToast] = useIonToast();
 
+  // RLS-safe log insertion
+  const insertLoginLog = async (userId: string, email: string) => {
+    try {
+      await supabase.from("logs").insert([
+        {
+          user_id: userId,
+          email,
+          action: "login",
+          // logs_id and login_time handled by DB defaults
+        },
+      ]);
+    } catch (err) {
+      console.error("Log insert error:", err);
+    }
+  };
+
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) console.error("Session error:", sessionError);
 
@@ -23,21 +38,17 @@ const OAuthCallback: React.FC = () => {
         const user = session.user;
 
         // Fetch existing profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("*")
           .eq("user_id", user.id)
           .single();
 
-        if (profileError && profileError.code !== "PGRST116") {
-          console.error("Profile fetch error:", profileError);
-        }
-
         let finalProfile = profile;
 
         // If no profile exists, create one
         if (!profile) {
-          const { data: newProfile, error: newProfileError } = await supabase
+          const { data: newProfile } = await supabase
             .from("profiles")
             .insert([
               {
@@ -52,7 +63,6 @@ const OAuthCallback: React.FC = () => {
             .select()
             .single();
 
-          if (newProfileError) console.error("Profile creation error:", newProfileError);
           finalProfile = newProfile;
         }
 
@@ -69,23 +79,9 @@ const OAuthCallback: React.FC = () => {
           })
         );
 
-        // Insert login log with proper error logging
-        const { data: logData, error: logError } = await supabase
-          .from("logs")
-          .insert([
-            {
-              user_id: user.id,
-              email: user.email || "",
-              action: "login",
-              logout_time: null,
-            },
-          ])
-          .select();
+        // Insert login log exactly once
+        await insertLoginLog(user.id, user.email || "");
 
-        if (logError) console.error("Log insert error:", logError);
-        else console.log("Log inserted:", logData);
-
-        // Show toast
         presentToast({
           message: "Login Success!",
           duration: 2000,
