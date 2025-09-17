@@ -47,7 +47,7 @@ const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [newsList, setNewsList] = useState<any[]>([]);
 
-  const router = useIonRouter(); // Ionic router for redirect
+  const router = useIonRouter();
 
   // Fetch user data
   const fetchUserData = async () => {
@@ -68,7 +68,7 @@ const UserDashboard: React.FC = () => {
 
     setUserId(user.id);
 
-    // Profile
+    // Fetch profile
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("username, trees_planted, greenpoints, avatar_url")
@@ -85,7 +85,7 @@ const UserDashboard: React.FC = () => {
       setAvatarUrl(profileData?.avatar_url || null);
     }
 
-    // Streak points
+    // Fetch streak points
     const { data: streakData, error: streakError } = await supabase
       .from("streak")
       .select("total_points")
@@ -166,7 +166,7 @@ const UserDashboard: React.FC = () => {
     };
   }, [userId]);
 
-  // --- Updated logout function ---
+  // --- Fixed logout function ---
   const handleLogout = async () => {
     try {
       const {
@@ -180,17 +180,19 @@ const UserDashboard: React.FC = () => {
         return;
       }
 
-      // Update last login log
-      const { data: lastLog } = await supabase
+      // Update the last login log with logout_time
+      const { data: lastLog, error: logError } = await supabase
         .from("logs")
         .select("logs_id")
         .eq("user_id", user.id)
         .eq("action", "login")
-        .order("created_at", { ascending: false })
+        .order("login_time", { ascending: false })
         .limit(1)
         .single();
 
-      if (lastLog) {
+      if (logError) console.error("Error fetching last log:", logError);
+
+      if (lastLog?.logs_id) {
         await supabase
           .from("logs")
           .update({ logout_time: new Date().toISOString() })
@@ -204,7 +206,7 @@ const UserDashboard: React.FC = () => {
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
-      // Redirect to login
+      // Redirect to login page
       setTimeout(() => {
         router.push("/GreenPoints/login", "forward", "replace");
       }, 500);
