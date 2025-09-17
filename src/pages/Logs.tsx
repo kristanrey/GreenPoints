@@ -20,7 +20,7 @@ interface Log {
   user_id: string;
   email: string;
   action: string;
-  created_at: string;
+  login_time: string;
   logout_time: string | null;
 }
 
@@ -30,30 +30,33 @@ const AdminLogs: React.FC = () => {
   const [feedback, setFeedback] = useState("");
   const [showToast, setShowToast] = useState(false);
 
+  // Fetch logs from Supabase
   const fetchLogs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("logs")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("logs") // Removed <Log> to fix TypeScript error
+        .select("*")
+        .order("login_time", { ascending: false });
 
-    if (error) {
-      console.error("❌ Error fetching logs:", error);
+      if (error) throw error;
+
+      setLogs((data as Log[]) || []);
+    } catch (err) {
+      console.error("❌ Error fetching logs:", err);
       setFeedback("Failed to load logs.");
       setShowToast(true);
-    } else {
-      setLogs(data || []);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // Helper: format duration
+  // Helper: calculate duration between login and logout
   const formatDuration = (start: string, end: string | null) => {
     if (!end) return "—";
     const startTime = new Date(start).getTime();
     const endTime = new Date(end).getTime();
     const diff = endTime - startTime;
-
     if (diff <= 0) return "—";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -70,7 +73,7 @@ const AdminLogs: React.FC = () => {
   }, []);
 
   return (
-    <IonPage>   
+    <IonPage>
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>User Logs</IonTitle>
@@ -93,14 +96,14 @@ const AdminLogs: React.FC = () => {
                   <IonCol size="2">Login Time</IonCol>
                   <IonCol size="2">Logout Time</IonCol>
                   <IonCol size="2">Duration</IonCol>
-                  <IonCol size="2">ID</IonCol>
+                  <IonCol size="2">Log ID</IonCol>
                 </IonRow>
                 {logs.map((log) => (
                   <IonRow key={log.logs_id}>
                     <IonCol size="2">{log.email}</IonCol>
                     <IonCol size="2">{log.action}</IonCol>
                     <IonCol size="2">
-                      {new Date(log.created_at).toLocaleString()}
+                      {new Date(log.login_time).toLocaleString()}
                     </IonCol>
                     <IonCol size="2">
                       {log.logout_time
@@ -108,7 +111,7 @@ const AdminLogs: React.FC = () => {
                         : "—"}
                     </IonCol>
                     <IonCol size="2">
-                      {formatDuration(log.created_at, log.logout_time)}
+                      {formatDuration(log.login_time, log.logout_time)}
                     </IonCol>
                     <IonCol size="2">{log.logs_id.slice(0, 6)}…</IonCol>
                   </IonRow>
