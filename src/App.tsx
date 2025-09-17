@@ -1,6 +1,6 @@
 // src/App.tsx
 import { Route, Redirect } from 'react-router-dom';
-import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
+import { IonApp, IonIcon, IonLabel, IonRouterOutlet, IonTabButton, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -40,6 +40,7 @@ import News from './pages/News';
 import NewsDetail from './pages/NewsDetail';
 import Streak from './pages/Streak';
 import Logs from './pages/Logs';
+import { podium } from 'ionicons/icons';
 
 
 
@@ -81,6 +82,9 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/news/:id" component={NewsDetail} exact />
           <Route path="/GreenPoints/streak" component={Streak} exact />
             <Route path="/GreenPoints/logs" component={Logs} exact />
+
+            
+          
 
            
             
