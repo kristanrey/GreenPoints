@@ -40,7 +40,8 @@ import News from './pages/News';
 import NewsDetail from './pages/NewsDetail';
 import Streak from './pages/Streak';
 import Logs from './pages/Logs';
-import { podium } from 'ionicons/icons';
+import AdminManage from './pages/AdminManage';
+
 
 
 
@@ -82,6 +83,7 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/news/:id" component={NewsDetail} exact />
           <Route path="/GreenPoints/streak" component={Streak} exact />
             <Route path="/GreenPoints/logs" component={Logs} exact />
+             <Route path="/GreenPoints/adminmanage" component={AdminManage} exact />
 
             
           

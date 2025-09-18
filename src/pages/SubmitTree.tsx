@@ -91,12 +91,15 @@ const SubmitNewTree: React.FC = () => {
         direction: useFrontCamera ? CameraDirection.Front : CameraDirection.Rear,
       });
 
+      // Use webPath if path is undefined (Web)
       const path = image.path || image.webPath;
       if (!path) return show("Failed to capture photo.");
 
+      // Convert native file path to browser-safe URL
       const photoUrl = Capacitor.convertFileSrc(path);
-      setPhotoDataUrl(photoUrl);
+      setPhotoDataUrl(photoUrl); // preview
 
+      // Fetch blob from original path for upload and EXIF
       const blob = await fetch(path).then((r) => r.blob());
       await extractExif(blob);
 
@@ -128,37 +131,25 @@ const SubmitNewTree: React.FC = () => {
       } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
-      // 🔒 Check if user already submitted today
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const { data: todaySubmissions, error: checkErr } = await supabase
-        .from("tree_submissions")
-        .select("id")
-        .eq("user_id", user.id)
-        .gte("created_at", startOfDay.toISOString());
-
-      if (checkErr) throw checkErr;
-      if (todaySubmissions && todaySubmissions.length > 0) {
-        return show("🚫 You can only submit one tree per day.");
-      }
-
       const blob = await fetch(photoDataUrl).then((r) => r.blob());
+      // ✅ get username first
+const { data: profileData } = await supabase
+  .from("profiles")
+  .select("username")
+  .eq("user_id", user.id)
+  .single();
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("user_id", user.id)
-        .single();
+const username = profileData?.username || user.id; // fallback if username missing
 
-      const username = profileData?.username || user.id;
-      const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
+const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
 
-      const { error: upErr } = await supabase.storage
-        .from("greenpoints")
-        .upload(filename, blob, { contentType: "image/jpeg" });
+const { error: upErr } = await supabase.storage
+  .from("greenpoints")
+  .upload(filename, blob, { contentType: "image/jpeg" });
+
       if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
@@ -281,6 +272,7 @@ const SubmitNewTree: React.FC = () => {
               </IonText>
             )}
 
+            {/* EXIF info with safe date rendering */}
             {exifData && (
               <IonText>
                 <p className="ion-margin-top">
