@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "name": "ManoloFortichBarangays",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Barangay Tankulan",
+        "treesPlanted": 120
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[124.85, 8.42], [124.87, 8.42], [124.87, 8.44], [124.85, 8.44], [124.85, 8.42]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Barangay Alae",
+        "treesPlanted": 95
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[124.87, 8.42], [124.89, 8.42], [124.89, 8.44], [124.87, 8.44], [124.87, 8.42]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Barangay Lunocan",
+        "treesPlanted": 150
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[124.85, 8.40], [124.87, 8.40], [124.87, 8.42], [124.85, 8.42], [124.85, 8.40]]]
+      }
+    }
+  ]
+}

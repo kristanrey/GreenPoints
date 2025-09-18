@@ -41,6 +41,7 @@ import NewsDetail from './pages/NewsDetail';
 import Streak from './pages/Streak';
 import Logs from './pages/Logs';
 import AdminManage from './pages/AdminManage';
+import Fetch from './pages/Fetch';
 
 
 
@@ -84,6 +85,7 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/streak" component={Streak} exact />
             <Route path="/GreenPoints/logs" component={Logs} exact />
              <Route path="/GreenPoints/adminmanage" component={AdminManage} exact />
+               <Route path="/GreenPoints/fetch" component={Fetch} exact />
 
             
           

@@ -335,22 +335,46 @@ const UserDashboard: React.FC = () => {
       </IonContent>
 
       {/* Bottom Navigation */}
-      <IonFooter>
-        <IonTabBar slot="bottom">
-          <IonTabButton tab="home" href="/GreenPoints/dashboard" className={activeTab === "home" ? "tab-active" : ""}>
-            <IonIcon icon={home} />
-            <IonLabel>Home</IonLabel>
-          </IonTabButton>
-          <IonTabButton tab="rewards" href="/GreenPoints/rewards" className={activeTab === "rewards" ? "tab-active" : ""}>
-            <IonIcon icon={gift} />
-            <IonLabel>Rewards</IonLabel>
-          </IonTabButton>
-          <IonTabButton tab="profile" href="/GreenPoints/editprofile" className={activeTab === "profile" ? "tab-active" : ""}>
-            <IonIcon icon={person} />
-            <IonLabel>Profile</IonLabel>
-          </IonTabButton>
-        </IonTabBar>
-      </IonFooter>
+     <IonFooter>
+  <IonTabBar slot="bottom">
+    <IonTabButton
+      tab="home"
+      className={activeTab === "home" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("home");
+        router.push("/GreenPoints/dashboard", "forward");
+      }}
+    >
+      <IonIcon icon={home} />
+      <IonLabel>Home</IonLabel>
+    </IonTabButton>
+
+    <IonTabButton
+      tab="rewards"
+      className={activeTab === "rewards" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("rewards");
+        router.push("/GreenPoints/rewards", "forward");
+      }}
+    >
+      <IonIcon icon={gift} />
+      <IonLabel>Rewards</IonLabel>
+    </IonTabButton>
+
+    <IonTabButton
+      tab="profile"
+      className={activeTab === "profile" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("profile");
+        router.push("/GreenPoints/editprofile", "forward");
+      }}
+    >
+      <IonIcon icon={person} />
+      <IonLabel>Profile</IonLabel>
+    </IonTabButton>
+  </IonTabBar>
+</IonFooter>
+
     </IonPage>
   );
 };
