@@ -1,4 +1,3 @@
-// src/pages/UserDashboard.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
@@ -21,6 +20,7 @@ import {
   podium,
   person,
   camera,
+  logOut,
   chatbox,
   newspaper,
   settings,
@@ -43,15 +43,6 @@ const UserDashboard: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   const router = useIonRouter();
-
-  // ✅ basePath helper (works on localhost, GitHub Pages, mobile)
-  const basePath =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1"
-      ? ""
-      : window.location.hostname.includes("github.io")
-      ? "/GreenPoints"
-      : "";
 
   // Fetch user data
   const fetchUserData = async () => {
@@ -150,20 +141,14 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      // 🔹 Sign out
       await supabase.auth.signOut();
 
-      // 🔹 Clear cached session token
-      localStorage.removeItem("supabase.auth.token");
-
-      // Feedback toast
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
-      // 🔹 Redirect safely (replace clears history so back button can’t reopen dashboard)
       setTimeout(() => {
-        window.location.replace(`${basePath}/login`);
-      }, 800);
+        router.push("/GreenPoints/login", "forward", "replace");
+      }, 500);
     } catch (error) {
       console.error("Logout error:", error);
       setFeedback("❌ Logout failed.");
@@ -210,8 +195,8 @@ const UserDashboard: React.FC = () => {
 
             {showSettings && (
               <div className="dropdown-menu">
-                <a href={`${basePath}/rewards`}>🎁 Rewards</a>
-                <a href={`${basePath}/editprofile`}>✏️ Edit Profile</a>
+                <a href="/GreenPoints/rewards">🎁 Rewards</a>
+                <a href="/GreenPoints/editprofile">✏️ Edit Profile</a>
                 <a href="#" onClick={handleLogout}>
                   🚪 Logout
                 </a>
@@ -246,39 +231,19 @@ const UserDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="action-buttons">
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="tertiary"
-            href={`${basePath}/streak`}
-          >
+          <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/streak">
             <IonIcon icon={podium} slot="start" />
             Monitor Status
           </IonButton>
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="success"
-            href={`${basePath}/submittree`}
-          >
+          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/submittree">
             <IonIcon icon={camera} slot="start" />
             Submit New Tree
           </IonButton>
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="tertiary"
-            href={`${basePath}/leaderboard`}
-          >
+          <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/leaderboard">
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
           </IonButton>
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="primary"
-            href={`${basePath}/feedback`}
-          >
+          <IonButton expand="block" className="dashboard-button" color="primary" href="/GreenPoints/feedback">
             <IonIcon icon={chatbox} slot="start" />
             Feedback
           </IonButton>
@@ -293,11 +258,7 @@ const UserDashboard: React.FC = () => {
           newsList.map((news) => (
             <IonCard key={news.id} className="news-card">
               {news.image_url && (
-                <IonImg
-                  src={news.image_url}
-                  alt={news.title}
-                  className="news-image"
-                />
+                <IonImg src={news.image_url} alt={news.title} className="news-image" />
               )}
               <IonCardHeader>
                 <IonCardTitle>{news.title}</IonCardTitle>
@@ -308,16 +269,9 @@ const UserDashboard: React.FC = () => {
                     ? news.content.substring(0, 120) + "..."
                     : news.content}
                 </p>
-                <small>
-                  📅 {new Date(news.created_at).toLocaleDateString()}
-                </small>
+                <small>📅 {new Date(news.created_at).toLocaleDateString()}</small>
                 <div style={{ marginTop: "10px", textAlign: "right" }}>
-                  <IonButton
-                    size="small"
-                    fill="outline"
-                    color="primary"
-                    href={`${basePath}/news/${news.id}`}
-                  >
+                  <IonButton size="small" fill="outline" color="primary" href={`/GreenPoints/news/${news.id}`}>
                     Read More
                   </IonButton>
                 </div>
