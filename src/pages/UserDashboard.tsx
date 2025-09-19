@@ -112,22 +112,21 @@ const UserDashboard: React.FC = () => {
     fetchUserData();
   }, []);
 
-  // --- Fixed logout function with logs update ---
+  // --- Fixed logout function ---
   const handleLogout = async () => {
     try {
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
+      if (!user) {
         setFeedback("❌ No user logged in.");
         setShowToast(true);
         return;
       }
 
-      // Update the last login log with logout_time
-      const { data: lastLog, error: logError } = await supabase
+      // Update last login log with logout_time
+      const { data: lastLog } = await supabase
         .from("logs")
         .select("logs_id")
         .eq("user_id", user.id)
@@ -136,8 +135,6 @@ const UserDashboard: React.FC = () => {
         .limit(1)
         .single();
 
-      if (logError) console.error("Error fetching last log:", logError);
-
       if (lastLog?.logs_id) {
         await supabase
           .from("logs")
@@ -145,14 +142,11 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      // Sign out
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
+      await supabase.auth.signOut();
 
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
-      // Redirect to login page
       setTimeout(() => {
         router.push("/GreenPoints/login", "forward", "replace");
       }, 500);
