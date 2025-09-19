@@ -42,6 +42,8 @@ import Streak from './pages/Streak';
 import Logs from './pages/Logs';
 import AdminManage from './pages/AdminManage';
 import Fetch from './pages/Fetch';
+import Event from './pages/Event';
+import UserEvent from './pages/UserEvent';
 
 
 
@@ -86,6 +88,8 @@ const App: React.FC = () => (
             <Route path="/GreenPoints/logs" component={Logs} exact />
              <Route path="/GreenPoints/adminmanage" component={AdminManage} exact />
                <Route path="/GreenPoints/fetch" component={Fetch} exact />
+                   <Route path="/GreenPoints/event" component={Event} exact />
+                   <Route path="/GreenPoints/userevent" component={UserEvent} exact />
 
             
           
