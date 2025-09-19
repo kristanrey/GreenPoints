@@ -1,5 +1,5 @@
 .dashboard-content {
-  --background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
+  --background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
                 url('/forest.jpg') no-repeat center center / cover;
 }
 
@@ -17,6 +17,7 @@
 .welcome-section {
   display: flex;
   align-items: center;
+  gap: 12px; /* space between avatar and text */
 }
 
 .welcome-icon {
@@ -26,10 +27,61 @@
 }
 
 .welcome-text {
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 500;
   color: #2c3e50;
 }
 
+.profile-avatar {
+  width: 50px;         
+  height: 50px;
+  border-radius: 50%;  
+  object-fit: contain; 
+  border: 2px solid #ccc;
+}
+
+/* Settings button + icon */
+.settings-dropdown {
+  position: relative;
+}
+.settings-dropdown ion-button {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --padding-top: 2px;
+  --padding-bottom: 2px;
+  --border-radius: 50%;
+}
+.settings-dropdown ion-icon {
+  width: 30px;   /* resize gear icon */
+  height: 30px;
+  color: #2c3e50; /* darker color for visibility */
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  z-index: 1000;
+}
+
+.dropdown-menu a {
+  padding: 10px 14px;
+  text-decoration: none;
+  color: #333;
+  font-size: 14px;
+}
+
+.dropdown-menu a:hover {
+  background-color: #f1f1f1;
+}
+
+/* Stats Card */
 .stats-card {
   margin: 16px;
   border-radius: 12px;
@@ -62,9 +114,17 @@
   background-color: rgba(241, 196, 15, 0.3);
 }
 
+/* Default stat icons */
 .stat-icon {
-  font-size: 24px;
   color: white;
+  width: 24px;
+  height: 24px;
+}
+
+/* Bigger only for the leaf (trees planted) */
+.tree-icon {
+  width: 36px;
+  height: 36px;
 }
 
 .stat-details {
@@ -155,50 +215,6 @@ ion-tab-bar {
   color: white;
 }
 
-/* Responsive adjustments */
-@media (min-width: 768px) {
-  .stats-card ion-card-content {
-    display: flex;
-    justify-content: space-around;
-  }
-  
-  .stat-divider {
-    width: 1px;
-    height: auto;
-    margin: 0 16px;
-  }
-  
-  .action-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-}
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-}
-
-.welcome-section {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* space between avatar and text */
-}
-
-.profile-avatar {
-  width: 50px;         /* bigger circular image */
-  height: 50px;
-  border-radius: 50%;  /* ensures perfect circle */
-  object-fit: contain;   /* crops image to fit circle */
-  border: 2px solid #ccc; /* optional: nice border around avatar */
-}
-
-.welcome-text {
-  font-size: 16px;
-  font-weight: 500;
-}
 /* Section Title */
 .section-title {
   font-size: 1.3rem;
@@ -245,7 +261,7 @@ ion-tab-bar {
   font-size: 0.95rem;
   line-height: 1.4;
   color: #555;
-  margin: px 0 10px;
+  margin: 0 0 10px;
 }
 
 /* Date */
@@ -253,30 +269,23 @@ ion-tab-bar {
   font-size: 0.8rem;
   color: #888;
 }
-.settings-dropdown {
-  position: relative;
-}
 
-.dropdown-menu {
-  position: absolute;
-  top: 40px;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-  min-width: 160px;
-  z-index: 1000;
-}
-
-.dropdown-menu a {
-  padding: 10px 14px;
-  text-decoration: none;
-  color: #333;
-  font-size: 14px;
-}
-
-.dropdown-menu a:hover {
-  background-color: #f1f1f1;
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .stats-card ion-card-content {
+    display: flex;
+    justify-content: space-around;
+  }
+  
+  .stat-divider {
+    width: 1px;
+    height: auto;
+    margin: 0 16px;
+  }
+  
+  .action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 }

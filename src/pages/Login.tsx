@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import "./login.css";
 import {
   IonAvatar,
@@ -13,10 +14,17 @@ import {
   useIonRouter,
 } from "@ionic/react";
 import { mailOutline, lockClosedOutline } from "ionicons/icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 
+// ✅ Redirect URL (handles web + android + ios)
 const getRedirectUrl = () => {
+  if (Capacitor.isNativePlatform()) {
+    return "com.greenpoints.ios://oauth-callback"; // must match Supabase redirect entry
+  }
   if (typeof window !== "undefined") {
     const origin = window.location.origin;
     if (origin.includes("localhost")) {
@@ -39,7 +47,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // RLS-safe log insertion
+  // ✅ Insert login log (kept as is)
   const insertLoginLog = async (userId: string, email: string) => {
     try {
       await supabase.from("logs").insert([
@@ -54,6 +62,7 @@ const Login: React.FC = () => {
     }
   };
 
+  // ✅ Email/Password Login (unchanged except cleanup)
   const doLogin = async () => {
     if (!email || !password) {
       setAlertMessage("Please fill in both fields.");
@@ -64,7 +73,10 @@ const Login: React.FC = () => {
     try {
       localStorage.removeItem("currentUser");
 
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (authError) {
         if (authError.message.toLowerCase().includes("email not confirmed")) {
@@ -123,16 +135,20 @@ const Login: React.FC = () => {
     }
   };
 
-  // Google OAuth
+  // ✅ Google OAuth (v2 style, no flowType)
   const loginWithGoogle = async () => {
     try {
       localStorage.removeItem("currentUser");
       await supabase.auth.signOut().catch(() => {});
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: redirectUrl, queryParams: { prompt: "select_account" } },
       });
       if (error) throw error;
+
+      if (data?.url && Capacitor.isNativePlatform()) {
+        await Browser.open({ url: data.url });
+      }
     } catch (err: any) {
       setAlertMessage("Google Sign-In failed: " + (err?.message || "Unknown error"));
       setShowAlert(true);
@@ -140,22 +156,47 @@ const Login: React.FC = () => {
     }
   };
 
-  // Facebook OAuth
+  // ✅ Facebook OAuth
   const loginWithFacebook = async () => {
     try {
       localStorage.removeItem("currentUser");
       await supabase.auth.signOut().catch(() => {});
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "facebook",
         options: { redirectTo: redirectUrl },
       });
       if (error) throw error;
+
+      if (data?.url && Capacitor.isNativePlatform()) {
+        await Browser.open({ url: data.url });
+      }
     } catch (err: any) {
       setAlertMessage("Facebook Sign-In failed: " + (err?.message || "Unknown error"));
       setShowAlert(true);
       console.error("Facebook login error:", err);
     }
   };
+
+  // ✅ iOS/Android OAuth redirect handler
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      App.addListener("appUrlOpen", async (data: any) => {
+        if (data.url.includes("oauth-callback")) {
+          try {
+            const { data: session } = await supabase.auth.getSession();
+            console.log("OAuth session:", session);
+
+            if (session?.session) {
+              router.push("/GreenPoints/userdashboard");
+            }
+          } catch (err) {
+            console.error("Error handling OAuth callback:", err);
+          }
+          await Browser.close();
+        }
+      });
+    }
+  }, [router]);
 
   const goToRegister = () => {
     router.push("/GreenPoints/register");
