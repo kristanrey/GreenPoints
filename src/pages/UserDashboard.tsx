@@ -1,3 +1,4 @@
+// src/pages/UserDashboard.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
@@ -9,12 +10,17 @@ import {
   IonIcon,
   IonToast,
   IonSpinner,
+  IonFooter,
+  IonTabBar,
+  IonTabButton,
+  IonLabel,
   IonImg,
   IonCardHeader,
   IonCardTitle,
   useIonRouter,
 } from "@ionic/react";
 import {
+  home,
   leaf,
   gift,
   podium,
@@ -23,7 +29,6 @@ import {
   logOut,
   chatbox,
   newspaper,
-  settings,
 } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
@@ -39,8 +44,8 @@ const UserDashboard: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState(0);
+  const [activeTab, setActiveTab] = useState("home");
   const [newsList, setNewsList] = useState<any[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
 
   const router = useIonRouter();
 
@@ -64,45 +69,50 @@ const UserDashboard: React.FC = () => {
     setUserId(user.id);
 
     // Fetch profile
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("username, trees_planted, greenpoints, avatar_url")
       .eq("user_id", user.id)
       .single();
 
-    setUserName(profileData?.username || "Guest");
-    setTreesPlanted(profileData?.trees_planted || 0);
-    setGreenpoints(profileData?.greenpoints || 0);
-    setAvatarUrl(profileData?.avatar_url || null);
+    if (profileError) {
+      setFeedback("❌ Failed to load profile.");
+      setShowToast(true);
+    } else {
+      setUserName(profileData?.username || "Guest");
+      setTreesPlanted(profileData?.trees_planted || 0);
+      setGreenpoints(profileData?.greenpoints || 0);
+      setAvatarUrl(profileData?.avatar_url || null);
+    }
 
     // Fetch streak points
-    const { data: streakData } = await supabase
+    const { data: streakData, error: streakError } = await supabase
       .from("streak")
       .select("total_points")
       .eq("user_id", user.id)
       .single();
 
-    if (streakData) {
+    if (!streakError && streakData) {
       setGreenpoints((prev) => (prev || 0) + (streakData.total_points || 0));
     }
 
     // Pending submissions
-    const { count } = await supabase
+    const { count, error: submissionsError } = await supabase
       .from("tree_submissions")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("status", "pending");
 
-    setPendingSubmissions(count || 0);
+    if (!submissionsError) setPendingSubmissions(count || 0);
 
     // Latest news
-    const { data: news } = await supabase
+    const { data: news, error: newsError } = await supabase
       .from("news")
       .select("id, title, content, image_url, created_at")
       .order("created_at", { ascending: false })
       .limit(5);
 
-    if (news) setNewsList(news);
+    if (!newsError && news) setNewsList(news);
 
     setLoading(false);
   };
@@ -111,21 +121,67 @@ const UserDashboard: React.FC = () => {
     fetchUserData();
   }, []);
 
+  // Realtime updates
+  useEffect(() => {
+    if (!userId) return;
+
+    const profileChannel = supabase
+      .channel("profile-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          setTreesPlanted(updated.trees_planted || 0);
+          setGreenpoints(updated.greenpoints || 0);
+        }
+      )
+      .subscribe();
+
+    const streakChannel = supabase
+      .channel("streak-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "streak",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          setGreenpoints((prev) => (prev || 0) + (updated.total_points || 0));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(streakChannel);
+    };
+  }, [userId]);
+
   // --- Fixed logout function ---
   const handleLogout = async () => {
     try {
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (userError || !user) {
         setFeedback("❌ No user logged in.");
         setShowToast(true);
         return;
       }
 
-      // Update last login log with logout_time
-      const { data: lastLog } = await supabase
+      // Update the last login log with logout_time
+      const { data: lastLog, error: logError } = await supabase
         .from("logs")
         .select("logs_id")
         .eq("user_id", user.id)
@@ -134,6 +190,8 @@ const UserDashboard: React.FC = () => {
         .limit(1)
         .single();
 
+      if (logError) console.error("Error fetching last log:", logError);
+
       if (lastLog?.logs_id) {
         await supabase
           .from("logs")
@@ -141,11 +199,14 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      await supabase.auth.signOut();
+      // Sign out
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
 
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
+      // Redirect to login page
       setTimeout(() => {
         router.push("/GreenPoints/login", "forward", "replace");
       }, 500);
@@ -182,27 +243,9 @@ const UserDashboard: React.FC = () => {
               Welcome back, <strong>{userName}</strong>
             </div>
           </div>
-
-          {/* Settings Dropdown */}
-          <div className="settings-dropdown">
-            <IonButton
-              fill="clear"
-              size="small"
-              onClick={() => setShowSettings(!showSettings)}
-            >
-              <IonIcon icon={settings} slot="icon-only" />
-            </IonButton>
-
-            {showSettings && (
-              <div className="dropdown-menu">
-                <a href="/GreenPoints/rewards">🎁 Rewards</a>
-                <a href="/GreenPoints/editprofile">✏️ Edit Profile</a>
-                <a href="#" onClick={handleLogout}>
-                  🚪 Logout
-                </a>
-              </div>
-            )}
-          </div>
+          <IonButton fill="clear" size="small" onClick={handleLogout} title="Logout">
+            <IonIcon icon={logOut} slot="icon-only" />
+          </IonButton>
         </div>
 
         {/* Tree Animation */}
@@ -212,7 +255,9 @@ const UserDashboard: React.FC = () => {
         <IonCard className="stats-card">
           <IonCardContent>
             <div className="stat-item">
-              <IonIcon icon={leaf} className="stat-icon tree-icon" />
+              <div className="stat-icon-container">
+                <IonIcon icon={leaf} className="stat-icon tree-icon" />
+              </div>
               <div className="stat-details">
                 <IonText className="stat-value">{treesPlanted}</IonText>
                 <IonText className="stat-label">Trees Planted</IonText>
@@ -220,7 +265,9 @@ const UserDashboard: React.FC = () => {
             </div>
             <div className="stat-divider"></div>
             <div className="stat-item">
-              <IonIcon icon={gift} className="stat-icon greenpoints-icon" />
+              <div className="stat-icon-container">
+                <IonIcon icon={gift} className="stat-icon greenpoints-icon" />
+              </div>
               <div className="stat-details">
                 <IonText className="stat-value">{greenpoints}</IonText>
                 <IonText className="stat-label">Greenpoints</IonText>
@@ -257,18 +304,12 @@ const UserDashboard: React.FC = () => {
         {newsList.length > 0 ? (
           newsList.map((news) => (
             <IonCard key={news.id} className="news-card">
-              {news.image_url && (
-                <IonImg src={news.image_url} alt={news.title} className="news-image" />
-              )}
+              {news.image_url && <IonImg src={news.image_url} alt={news.title} className="news-image" />}
               <IonCardHeader>
                 <IonCardTitle>{news.title}</IonCardTitle>
               </IonCardHeader>
               <IonCardContent>
-                <p>
-                  {news.content.length > 120
-                    ? news.content.substring(0, 120) + "..."
-                    : news.content}
-                </p>
+                <p>{news.content.length > 120 ? news.content.substring(0, 120) + "..." : news.content}</p>
                 <small>📅 {new Date(news.created_at).toLocaleDateString()}</small>
                 <div style={{ marginTop: "10px", textAlign: "right" }}>
                   <IonButton size="small" fill="outline" color="primary" href={`/GreenPoints/news/${news.id}`}>
@@ -292,6 +333,48 @@ const UserDashboard: React.FC = () => {
           }}
         />
       </IonContent>
+
+      {/* Bottom Navigation */}
+     <IonFooter>
+  <IonTabBar slot="bottom">
+    <IonTabButton
+      tab="home"
+      className={activeTab === "home" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("home");
+        router.push("/GreenPoints/dashboard", "forward");
+      }}
+    >
+      <IonIcon icon={home} />
+      <IonLabel>Home</IonLabel>
+    </IonTabButton>
+
+    <IonTabButton
+      tab="rewards"
+      className={activeTab === "rewards" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("rewards");
+        router.push("/GreenPoints/rewards", "forward");
+      }}
+    >
+      <IonIcon icon={gift} />
+      <IonLabel>Rewards</IonLabel>
+    </IonTabButton>
+
+    <IonTabButton
+      tab="profile"
+      className={activeTab === "profile" ? "tab-active" : ""}
+      onClick={() => {
+        setActiveTab("profile");
+        router.push("/GreenPoints/editprofile", "forward");
+      }}
+    >
+      <IonIcon icon={person} />
+      <IonLabel>Profile</IonLabel>
+    </IonTabButton>
+  </IonTabBar>
+</IonFooter>
+
     </IonPage>
   );
 };
