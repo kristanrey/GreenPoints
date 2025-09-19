@@ -28,6 +28,7 @@ import {
 import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
 import "./UserDashboard.css";
+import { Capacitor } from "@capacitor/core";
 
 const UserDashboard: React.FC = () => {
   const [userName, setUserName] = useState("");
@@ -111,7 +112,7 @@ const UserDashboard: React.FC = () => {
     fetchUserData();
   }, []);
 
-  // --- Fixed logout function ---
+  // --- Patched logout function ---
   const handleLogout = async () => {
     try {
       const {
@@ -141,7 +142,14 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      await supabase.auth.signOut();
+      // ✅ Handle logout per platform
+      if (Capacitor.getPlatform() === "ios") {
+        // iOS native app
+        await supabase.auth.signOut();
+      } else {
+        // Web + Android
+        await supabase.auth.signOut();
+      }
 
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
@@ -231,19 +239,39 @@ const UserDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="action-buttons">
-          <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/streak">
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="tertiary"
+            href="/GreenPoints/streak"
+          >
             <IonIcon icon={podium} slot="start" />
             Monitor Status
           </IonButton>
-          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/submittree">
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="success"
+            href="/GreenPoints/submittree"
+          >
             <IonIcon icon={camera} slot="start" />
             Submit New Tree
           </IonButton>
-          <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/leaderboard">
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="tertiary"
+            href="/GreenPoints/leaderboard"
+          >
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
           </IonButton>
-          <IonButton expand="block" className="dashboard-button" color="primary" href="/GreenPoints/feedback">
+          <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="primary"
+            href="/GreenPoints/feedback"
+          >
             <IonIcon icon={chatbox} slot="start" />
             Feedback
           </IonButton>
@@ -258,7 +286,11 @@ const UserDashboard: React.FC = () => {
           newsList.map((news) => (
             <IonCard key={news.id} className="news-card">
               {news.image_url && (
-                <IonImg src={news.image_url} alt={news.title} className="news-image" />
+                <IonImg
+                  src={news.image_url}
+                  alt={news.title}
+                  className="news-image"
+                />
               )}
               <IonCardHeader>
                 <IonCardTitle>{news.title}</IonCardTitle>
@@ -269,9 +301,16 @@ const UserDashboard: React.FC = () => {
                     ? news.content.substring(0, 120) + "..."
                     : news.content}
                 </p>
-                <small>📅 {new Date(news.created_at).toLocaleDateString()}</small>
+                <small>
+                  📅 {new Date(news.created_at).toLocaleDateString()}
+                </small>
                 <div style={{ marginTop: "10px", textAlign: "right" }}>
-                  <IonButton size="small" fill="outline" color="primary" href={`/GreenPoints/news/${news.id}`}>
+                  <IonButton
+                    size="small"
+                    fill="outline"
+                    color="primary"
+                    href={`/GreenPoints/news/${news.id}`}
+                  >
                     Read More
                   </IonButton>
                 </div>
