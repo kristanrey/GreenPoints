@@ -1,7 +1,10 @@
 // src/pages/AdminDashboard.tsx
 import React, { useEffect, useState } from "react";
 import { IonPage, IonContent } from "@ionic/react";
-import { supabase } from "../utils/supabaseClient"; // adjust path if needed
+import { supabase } from "../utils/supabaseClient";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import "./Validators.css";
 
 interface Activity {
@@ -11,8 +14,16 @@ interface Activity {
   status: string;
 }
 
+interface Validator {
+  id: string;
+  full_name: string;
+  latitude: number;
+  longitude: number;
+}
+
 const Validators: React.FC = () => {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [validators, setValidators] = useState<Validator[]>([]);
   const [loading, setLoading] = useState(true);
   const [userCount, setUserCount] = useState<number>(0);
   const [treesPlanted, setTreesPlanted] = useState<number>(0);
@@ -23,7 +34,6 @@ const Validators: React.FC = () => {
 
   const fetchDashboardData = async () => {
     setLoading(true);
-
     try {
       // ✅ Fetch recent activity
       const { data: activityData, error: activityError } = await supabase
@@ -43,7 +53,7 @@ const Validators: React.FC = () => {
       if (profileError) throw profileError;
       setUserCount(profileCount || 0);
 
-      // ✅ Fetch total trees planted (sum from profiles)
+      // ✅ Fetch total trees planted
       const { data: treesData, error: treesError } = await supabase
         .from("profiles")
         .select("trees_planted");
@@ -54,14 +64,33 @@ const Validators: React.FC = () => {
         (acc: number, row: any) => acc + (row.trees_planted || 0),
         0
       );
-
       setTreesPlanted(totalTrees || 0);
+
+      // ✅ Fetch validator locations
+      const { data: validatorData, error: validatorError } = await supabase
+        .from("profiles")
+        .select("id, full_name, latitude, longitude")
+        .eq("role", "validator"); // only fetch validators
+
+      if (validatorError) throw validatorError;
+
+      setValidators(validatorData as Validator[]);
     } catch (err: any) {
       console.error("Error fetching dashboard data:", err.message);
     }
-
     setLoading(false);
   };
+
+  // Default marker icon fix for Leaflet
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    iconUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  });
 
   return (
     <IonPage>
@@ -122,10 +151,8 @@ const Validators: React.FC = () => {
 
         {/* CONTENT */}
         <section id="content">
-          {/* NAVBAR */}
           <nav>
             <i className="bx bx-menu"></i>
-
             <form action="#">
               <div className="form-input">
                 <input type="search" placeholder="Search..." />
@@ -143,14 +170,19 @@ const Validators: React.FC = () => {
             </a>
           </nav>
 
-          {/* MAIN */}
           <main>
             <div className="head-title">
               <div className="left">
                 <h1>Dashboard</h1>
                 <ul className="breadcrumb">
-                  <li><i className="bx bx-chevron-right"></i></li>
-                  <li><a className="active" href="#">Home</a></li>
+                  <li>
+                    <i className="bx bx-chevron-right"></i>
+                  </li>
+                  <li>
+                    <a className="active" href="#">
+                      Home
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -195,9 +227,13 @@ const Validators: React.FC = () => {
                       {recentActivity.map((activity) => (
                         <tr key={activity.id}>
                           <td>{activity.user_id}</td>
-                          <td>{new Date(activity.created_at).toLocaleDateString()}</td>
                           <td>
-                            <span className={`status ${activity.status.toLowerCase()}`}>
+                            {new Date(activity.created_at).toLocaleDateString()}
+                          </td>
+                          <td>
+                            <span
+                              className={`status ${activity.status.toLowerCase()}`}
+                            >
                               {activity.status}
                             </span>
                           </td>
@@ -208,22 +244,28 @@ const Validators: React.FC = () => {
                 )}
               </div>
 
+              {/* VALIDATORS MAP */}
               <div className="todo">
                 <div className="head">
-                  <h3>Todos</h3>
-                  <i className="bx bx-plus"></i>
-                  <i className="bx bx-filter"></i>
+                  <h3>Validators Map</h3>
                 </div>
-                <ul className="todo-list">
-                  <li className="completed">
-                    <p>Todo List</p>
-                    <i className="bx bx-dots-vertical-rounded"></i>
-                  </li>
-                  <li className="not-completed">
-                    <p>Todo List</p>
-                    <i className="bx bx-dots-vertical-rounded"></i>
-                  </li>
-                </ul>
+                <div style={{ height: "400px", width: "100%" }}>
+                  <MapContainer
+                    center={[10, 124]} // approximate center of the Philippines
+                    zoom={6}
+                    style={{ height: "100%", width: "100%" }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    {validators.map((v) => (
+                      <Marker key={v.id} position={[v.latitude, v.longitude]}>
+                        <Popup>{v.full_name}</Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
+                </div>
               </div>
             </div>
           </main>
@@ -234,4 +276,3 @@ const Validators: React.FC = () => {
 };
 
 export default Validators;
-  
