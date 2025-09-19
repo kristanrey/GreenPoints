@@ -150,15 +150,20 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
+      // 🔹 Sign out
       await supabase.auth.signOut();
 
+      // 🔹 Clear cached session token
+      localStorage.removeItem("supabase.auth.token");
+
+      // Feedback toast
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
-      // ✅ Redirect safely (mobile/web/GitHub Pages)
+      // 🔹 Redirect safely (replace clears history so back button can’t reopen dashboard)
       setTimeout(() => {
-        router.push(`${basePath}/login`, "root");
-      }, 500);
+        window.location.replace(`${basePath}/login`);
+      }, 800);
     } catch (error) {
       console.error("Logout error:", error);
       setFeedback("❌ Logout failed.");
