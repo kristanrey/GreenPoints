@@ -62,7 +62,7 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ Email/Password Login (unchanged except cleanup)
+  // ✅ Email/Password Login
   const doLogin = async () => {
     if (!email || !password) {
       setAlertMessage("Please fill in both fields.");
@@ -135,7 +135,7 @@ const Login: React.FC = () => {
     }
   };
 
-  // ✅ Google OAuth (v2 style, no flowType)
+  // ✅ Google OAuth
   const loginWithGoogle = async () => {
     try {
       localStorage.removeItem("currentUser");
@@ -198,6 +198,21 @@ const Login: React.FC = () => {
     }
   }, [router]);
 
+  // ✅ NEW: Logout handler
+  const handleLogout = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await supabase.auth.signOut();
+      } else {
+        await supabase.auth.signOut({ scope: "global" });
+      }
+      localStorage.removeItem("currentUser");
+      router.push("/GreenPoints/login");
+    } catch (err) {
+      console.error("Error logging out:", err);
+    }
+  };
+
   const goToRegister = () => {
     router.push("/GreenPoints/register");
   };
@@ -255,6 +270,11 @@ const Login: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* 🔹 Logout button */}
+            <IonButton expand="block" color="medium" onClick={handleLogout}>
+              Logout
+            </IonButton>
 
             <IonText className="register-text">
               Don&apos;t have an account?{" "}
