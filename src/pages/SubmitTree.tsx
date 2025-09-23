@@ -43,6 +43,7 @@ const SubmitNewTree: React.FC = () => {
     setIsNative(Capacitor.isNativePlatform());
   }, []);
 
+  // ✅ fallback geolocation (only if EXIF missing)
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
@@ -58,15 +59,14 @@ const SubmitNewTree: React.FC = () => {
           });
         });
       }
-      const newCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-      setCoords(newCoords);
-      return newCoords;
-    } catch (err) {
+      return { lat: position.coords.latitude, lng: position.coords.longitude };
+    } catch {
       show("Unable to get location. Please allow location permission.");
       return null;
     }
   };
 
+  // ✅ always prefer EXIF GPS
   const extractExif = async (blob: Blob) => {
     try {
       const metadata = await exifr.parse(blob, { gps: true });
@@ -91,20 +91,19 @@ const SubmitNewTree: React.FC = () => {
         direction: useFrontCamera ? CameraDirection.Front : CameraDirection.Rear,
       });
 
-      // Use webPath if path is undefined (Web)
       const path = image.path || image.webPath;
       if (!path) return show("Failed to capture photo.");
 
-      // Convert native file path to browser-safe URL
       const photoUrl = Capacitor.convertFileSrc(path);
-      setPhotoDataUrl(photoUrl); // preview
+      setPhotoDataUrl(photoUrl);
 
-      // Fetch blob from original path for upload and EXIF
       const blob = await fetch(path).then((r) => r.blob());
       await extractExif(blob);
 
+      // ⚠️ Do NOT overwrite coords here if EXIF already has GPS
       if (!coords) {
-        await getGeoCoords();
+        const fallbackCoords = await getGeoCoords();
+        if (fallbackCoords) setCoords(fallbackCoords);
       }
     } catch (err) {
       console.error(err);
@@ -132,26 +131,26 @@ const SubmitNewTree: React.FC = () => {
       if (userErr || !user) throw new Error("You must be logged in");
 
       const blob = await fetch(photoDataUrl).then((r) => r.blob());
+
       // ✅ get username first
-const { data: profileData } = await supabase
-  .from("profiles")
-  .select("username")
-  .eq("user_id", user.id)
-  .single();
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("user_id", user.id)
+        .single();
+      const username = profileData?.username || user.id;
 
-const username = profileData?.username || user.id; // fallback if username missing
+      const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
 
-const filename = `${username}/tree_submissions/${Date.now()}.jpg`;
-
-const { error: upErr } = await supabase.storage
-  .from("greenpoints")
-  .upload(filename, blob, { contentType: "image/jpeg" });
-
+      const { error: upErr } = await supabase.storage
+        .from("greenpoints")
+        .upload(filename, blob, { contentType: "image/jpeg" });
       if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filename);
+      const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
+      // ✅ Save EXIF + coords to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -169,11 +168,11 @@ const { error: upErr } = await supabase.storage
       ]);
       if (dbErr) throw dbErr;
 
+      // Update user’s total trees
       const { count } = await supabase
         .from("tree_submissions")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id);
-
       await supabase.from("users").update({ treesPlanted: count }).eq("id", user.id);
 
       show("✅ Tree submitted successfully! Awaiting validation.");
@@ -203,10 +202,6 @@ const { error: upErr } = await supabase.storage
             <IonCardTitle>Submit New Tree</IonCardTitle>
           </IonCardHeader>
           <IonCardContent>
-            <IonText>
-              <p>Fill out the details and take or select a photo of your tree.</p>
-            </IonText>
-
             <IonItem>
               <IonLabel position="floating">Date Planted</IonLabel>
               <IonInput
@@ -223,7 +218,10 @@ const { error: upErr } = await supabase.storage
 
             <IonItem>
               <IonLabel position="floating">Planted Where</IonLabel>
-              <IonInput value={locationDesc} onIonChange={(e) => setLocationDesc(e.detail.value!)} />
+              <IonInput
+                value={locationDesc}
+                onIonChange={(e) => setLocationDesc(e.detail.value!)}
+              />
             </IonItem>
 
             {!photoDataUrl && (
@@ -272,7 +270,6 @@ const { error: upErr } = await supabase.storage
               </IonText>
             )}
 
-            {/* EXIF info with safe date rendering */}
             {exifData && (
               <IonText>
                 <p className="ion-margin-top">
