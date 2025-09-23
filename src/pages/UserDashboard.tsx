@@ -30,6 +30,7 @@ import {
   chatbox,
   newspaper,
   settingsOutline,
+  calendar,
 } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
@@ -46,11 +47,12 @@ const UserDashboard: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState(0);
   const [newsList, setNewsList] = useState<any[]>([]);
+  const [eventList, setEventList] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
   const router = useIonRouter();
 
-  // Fetch user data
+  // Fetch user data + news + events
   const fetchUserData = async () => {
     setFeedback("");
     setShowToast(false);
@@ -115,6 +117,17 @@ const UserDashboard: React.FC = () => {
 
     if (!newsError && news) setNewsList(news);
 
+    // Latest events
+    const { data: events, error: eventsError } = await supabase
+      .from("events")
+      .select(
+        "event_id, title, description, date, registration_type, max_participants, created_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (!eventsError && events) setEventList(events);
+
     setLoading(false);
   };
 
@@ -136,7 +149,6 @@ const UserDashboard: React.FC = () => {
         return;
       }
 
-      // Update the last login log with logout_time
       const { data: lastLog } = await supabase
         .from("logs")
         .select("logs_id")
@@ -153,14 +165,12 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      // Sign out
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
 
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
-      // Redirect to login page
       setTimeout(() => {
         router.push("/GreenPoints/login", "forward", "replace");
       }, 500);
@@ -209,30 +219,29 @@ const UserDashboard: React.FC = () => {
             </IonButton>
 
             <IonPopover
-  isOpen={showSettings}
-  onDidDismiss={() => setShowSettings(false)}
->
-  <IonList>
-    <IonItem
-      button
-      href="/GreenPoints/rewards"
-      onClick={() => setShowSettings(false)}
-    >
-      <IonIcon icon={gift} slot="start" />
-      <IonLabel>Rewards</IonLabel>
-    </IonItem>
+              isOpen={showSettings}
+              onDidDismiss={() => setShowSettings(false)}
+            >
+              <IonList>
+                <IonItem
+                  button
+                  href="/GreenPoints/rewards"
+                  onClick={() => setShowSettings(false)}
+                >
+                  <IonIcon icon={gift} slot="start" />
+                  <IonLabel>Rewards</IonLabel>
+                </IonItem>
 
-    <IonItem
-      button
-      href="/GreenPoints/editprofile"
-      onClick={() => setShowSettings(false)}
-    >
-      <IonIcon icon={person} slot="start" />
-      <IonLabel>Edit Profile</IonLabel>
-    </IonItem>
-  </IonList>
-</IonPopover>
-
+                <IonItem
+                  button
+                  href="/GreenPoints/editprofile"
+                  onClick={() => setShowSettings(false)}
+                >
+                  <IonIcon icon={person} slot="start" />
+                  <IonLabel>Edit Profile</IonLabel>
+                </IonItem>
+              </IonList>
+            </IonPopover>
 
             {/* Logout */}
             <IonButton
@@ -356,6 +365,46 @@ const UserDashboard: React.FC = () => {
           ))
         ) : (
           <p className="ion-text-center">No news available.</p>
+        )}
+
+        {/* Events Section */}
+        <h2 className="section-title">
+          <IonIcon icon={calendar} /> Upcoming Events
+        </h2>
+
+        {eventList.length > 0 ? (
+          eventList.map((event) => (
+            <IonCard key={event.event_id} className="news-card">
+              <IonCardHeader>
+                <IonCardTitle>{event.title}</IonCardTitle>
+              </IonCardHeader>
+              <IonCardContent>
+                <p>
+                  {event.description.length > 120
+                    ? event.description.substring(0, 120) + "..."
+                    : event.description}
+                </p>
+                <small>
+                  📅 {new Date(event.date).toLocaleDateString()} |{" "}
+                  {event.registration_type} | 🎟 Max:{" "}
+                  {event.max_participants || "Unlimited"}
+                </small>
+                <div style={{ marginTop: "10px", textAlign: "right" }}>
+                  <IonButton
+  size="small"
+  fill="outline"
+  color="secondary"
+  href={`/GreenPoints/events/${event.event_id}`}
+>
+  View Details
+</IonButton>
+
+                </div>
+              </IonCardContent>
+            </IonCard>
+          ))
+        ) : (
+          <p className="ion-text-center">No upcoming events.</p>
         )}
 
         <IonToast

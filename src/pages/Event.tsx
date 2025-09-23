@@ -24,7 +24,9 @@ import {
   IonAccordionGroup,
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
+import "./Event.css";
 import {
+  
   checkmarkCircleOutline,
   closeCircleOutline,
   trashOutline,
