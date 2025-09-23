@@ -209,32 +209,30 @@ const UserDashboard: React.FC = () => {
             </IonButton>
 
             <IonPopover
-              isOpen={showSettings}
-              onDidDismiss={() => setShowSettings(false)}
-            >
-              <IonList>
-                <IonItem
-                  button
-                  onClick={() => {
-                    router.push("/GreenPoints/rewards", "forward");
-                    setShowSettings(false);
-                  }}
-                >
-                  <IonIcon icon={gift} slot="start" />
-                  <IonLabel>Rewards</IonLabel>
-                </IonItem>
-                <IonItem
-                  button
-                  onClick={() => {
-                    router.push("/GreenPoints/editprofile", "forward");
-                    setShowSettings(false);
-                  }}
-                >
-                  <IonIcon icon={person} slot="start" />
-                  <IonLabel>Edit Profile</IonLabel>
-                </IonItem>
-              </IonList>
-            </IonPopover>
+  isOpen={showSettings}
+  onDidDismiss={() => setShowSettings(false)}
+>
+  <IonList>
+    <IonItem
+      button
+      href="/GreenPoints/rewards"
+      onClick={() => setShowSettings(false)}
+    >
+      <IonIcon icon={gift} slot="start" />
+      <IonLabel>Rewards</IonLabel>
+    </IonItem>
+
+    <IonItem
+      button
+      href="/GreenPoints/editprofile"
+      onClick={() => setShowSettings(false)}
+    >
+      <IonIcon icon={person} slot="start" />
+      <IonLabel>Edit Profile</IonLabel>
+    </IonItem>
+  </IonList>
+</IonPopover>
+
 
             {/* Logout */}
             <IonButton
