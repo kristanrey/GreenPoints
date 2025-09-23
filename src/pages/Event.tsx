@@ -25,13 +25,7 @@ import {
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
 import "./Event.css";
-import {
-  
-  checkmarkCircleOutline,
-  closeCircleOutline,
-  trashOutline,
-  createOutline,
-} from "ionicons/icons";
+import { checkmarkCircleOutline, closeCircleOutline, trashOutline, createOutline } from "ionicons/icons";
 
 interface Validator {
   validator_id: string;
@@ -44,6 +38,7 @@ const AdminEvents: React.FC = () => {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [date, setDate] = useState("");
+  const [endDate, setEndDate] = useState(""); // New end_date state
   const [registrationType, setRegistrationType] = useState<"open" | "limited">("open");
   const [max, setMax] = useState<number | undefined>();
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -86,7 +81,9 @@ const AdminEvents: React.FC = () => {
   };
 
   const fetchRegistrations = async () => {
-    const { data, error } = await supabase.from("event_registrations").select("*");
+    const { data, error } = await supabase
+      .from("event_registrations")
+      .select("*");
     if (error) {
       console.error("Error fetching registrations:", error.message);
       setToastMsg("Failed to fetch registrations");
@@ -99,6 +96,7 @@ const AdminEvents: React.FC = () => {
     setTitle("");
     setDesc("");
     setDate("");
+    setEndDate(""); // Reset end_date
     setMax(undefined);
     setRegistrationType("open");
     setEditingEventId(null);
@@ -110,8 +108,8 @@ const AdminEvents: React.FC = () => {
       return;
     }
 
-    if (!title.trim() || !desc.trim() || !date) {
-      setToastMsg("Title, description, and date are required");
+    if (!title.trim() || !desc.trim() || !date || !endDate) {
+      setToastMsg("Title, description, start date, and end date are required");
       return;
     }
 
@@ -120,10 +118,17 @@ const AdminEvents: React.FC = () => {
       return;
     }
 
+    // Convert to proper datetime format for Supabase
+    const formatDateTime = (d: string) => {
+      const localDate = new Date(d);
+      return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")} ${String(localDate.getHours()).padStart(2, "0")}:${String(localDate.getMinutes()).padStart(2, "0")}:00`;
+    };
+
     const eventData = {
       title: title.trim(),
       description: desc.trim(),
-      date: new Date(date).toISOString(),
+      date: formatDateTime(date),
+      end_date: formatDateTime(endDate),
       registration_type: registrationType,
       max_participants: registrationType === "limited" ? max : null,
       created_by: validator.validator_id,
@@ -131,7 +136,6 @@ const AdminEvents: React.FC = () => {
     };
 
     if (editingEventId) {
-      // Update event
       const { error } = await supabase
         .from("events")
         .update(eventData)
@@ -145,7 +149,6 @@ const AdminEvents: React.FC = () => {
         resetForm();
       }
     } else {
-      // Create new event
       const { error } = await supabase.from("events").insert([eventData]);
       if (error) {
         console.error("Failed to create event:", error.message);
@@ -160,9 +163,8 @@ const AdminEvents: React.FC = () => {
 
   const deleteEvent = async (eventId: number) => {
     const { error } = await supabase.from("events").delete().eq("event_id", eventId);
-    if (error) {
-      setToastMsg("Failed to delete event");
-    } else {
+    if (error) setToastMsg("Failed to delete event");
+    else {
       setToastMsg("Event deleted successfully!");
       fetchEvents();
     }
@@ -172,25 +174,23 @@ const AdminEvents: React.FC = () => {
     setEditingEventId(ev.event_id);
     setTitle(ev.title);
     setDesc(ev.description);
-    setDate(new Date(ev.date).toISOString().slice(0, 16));
+
+    // Convert dates for datetime-local input
+    const toLocalInput = (d: string) => new Date(new Date(d).getTime() - new Date(d).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setDate(toLocalInput(ev.date));
+    setEndDate(toLocalInput(ev.end_date));
     setRegistrationType(ev.registration_type);
     setMax(ev.max_participants || undefined);
   };
 
   const approveUser = async (regId: number) => {
-    const { error } = await supabase
-      .from("event_registrations")
-      .update({ status: "approved" })
-      .eq("registration_id", regId);
+    const { error } = await supabase.from("event_registrations").update({ status: "approved" }).eq("registration_id", regId);
     if (error) setToastMsg("Failed to approve registration");
     else fetchRegistrations();
   };
 
   const rejectUser = async (regId: number) => {
-    const { error } = await supabase
-      .from("event_registrations")
-      .update({ status: "rejected" })
-      .eq("registration_id", regId);
+    const { error } = await supabase.from("event_registrations").update({ status: "rejected" }).eq("registration_id", regId);
     if (error) setToastMsg("Failed to reject registration");
     else fetchRegistrations();
   };
@@ -216,33 +216,16 @@ const AdminEvents: React.FC = () => {
             <IonCardTitle>{editingEventId ? "Update Event" : "Create New Event"}</IonCardTitle>
           </IonCardHeader>
           <IonCardContent>
-            <IonInput
-              placeholder="Title"
-              value={title}
-              onIonChange={(e) => setTitle(e.detail.value!)}
-              className="ion-margin-bottom"
-            />
-            <IonInput
-              placeholder="Description"
-              value={desc}
-              onIonChange={(e) => setDesc(e.detail.value!)}
-              className="ion-margin-bottom"
-            />
-            <IonInput
-              type="datetime-local"
-              value={date}
-              onIonChange={(e) => setDate(e.detail.value!)}
-              className="ion-margin-bottom"
-            />
-            <IonSelect
-              value={registrationType}
-              placeholder="Select registration type"
-              onIonChange={(e) => setRegistrationType(e.detail.value)}
-              className="ion-margin-bottom"
-            >
+            <IonInput placeholder="Title" value={title} onIonChange={(e) => setTitle(e.detail.value!)} className="ion-margin-bottom" />
+            <IonInput placeholder="Description" value={desc} onIonChange={(e) => setDesc(e.detail.value!)} className="ion-margin-bottom" />
+            <IonInput type="datetime-local" placeholder="Start Date" value={date} onIonChange={(e) => setDate(e.detail.value!)} className="ion-margin-bottom" />
+            <IonInput type="datetime-local" placeholder="End Date" value={endDate} onIonChange={(e) => setEndDate(e.detail.value!)} className="ion-margin-bottom" />
+
+            <IonSelect value={registrationType} placeholder="Select registration type" onIonChange={(e) => setRegistrationType(e.detail.value)} className="ion-margin-bottom">
               <IonSelectOption value="open">Open to All</IonSelectOption>
               <IonSelectOption value="limited">Limited Participants</IonSelectOption>
             </IonSelect>
+
             {registrationType === "limited" && (
               <IonInput
                 type="number"
@@ -252,6 +235,7 @@ const AdminEvents: React.FC = () => {
                 className="ion-margin-bottom"
               />
             )}
+
             <IonButton expand="block" color={editingEventId ? "warning" : "success"} onClick={createOrUpdateEvent}>
               {editingEventId ? "Update Event" : "Create Event"}
             </IonButton>
@@ -271,16 +255,15 @@ const AdminEvents: React.FC = () => {
               <IonItem slot="header" color="light">
                 <IonLabel>
                   <h3>{ev.title}</h3>
-                  <IonText color="medium">{new Date(ev.date).toLocaleString()}</IonText>
+                  <IonText color="medium">
+                    {new Date(ev.date).toLocaleString()} - {new Date(ev.end_date).toLocaleString()}
+                  </IonText>
                 </IonLabel>
               </IonItem>
               <div className="ion-padding" slot="content">
                 <p>{ev.description}</p>
                 <p>
-                  <strong>Type:</strong>{" "}
-                  {ev.registration_type === "limited"
-                    ? `Limited (${ev.max_participants} max)`
-                    : "Open to All"}
+                  <strong>Type:</strong> {ev.registration_type === "limited" ? `Limited (${ev.max_participants} max)` : "Open to All"}
                 </p>
 
                 <IonText>
@@ -296,20 +279,10 @@ const AdminEvents: React.FC = () => {
                         </IonLabel>
                         {r.status === "pending" && (
                           <>
-                            <IonButton
-                              fill="clear"
-                              color="success"
-                              onClick={() => approveUser(r.registration_id)}
-                              size="small"
-                            >
+                            <IonButton fill="clear" color="success" onClick={() => approveUser(r.registration_id)} size="small">
                               <IonIcon icon={checkmarkCircleOutline} />
                             </IonButton>
-                            <IonButton
-                              fill="clear"
-                              color="danger"
-                              onClick={() => rejectUser(r.registration_id)}
-                              size="small"
-                            >
+                            <IonButton fill="clear" color="danger" onClick={() => rejectUser(r.registration_id)} size="small">
                               <IonIcon icon={closeCircleOutline} />
                             </IonButton>
                           </>
@@ -319,12 +292,7 @@ const AdminEvents: React.FC = () => {
                 </IonList>
 
                 {/* Event Actions */}
-                <IonButton
-                  fill="outline"
-                  color="warning"
-                  onClick={() => startEditing(ev)}
-                  className="ion-margin-end"
-                >
+                <IonButton fill="outline" color="warning" onClick={() => startEditing(ev)} className="ion-margin-end">
                   <IonIcon icon={createOutline} /> Update
                 </IonButton>
                 <IonButton fill="outline" color="danger" onClick={() => deleteEvent(ev.event_id)}>
@@ -335,12 +303,7 @@ const AdminEvents: React.FC = () => {
           ))}
         </IonAccordionGroup>
 
-        <IonToast
-          isOpen={!!toastMsg}
-          message={toastMsg}
-          duration={2000}
-          onDidDismiss={() => setToastMsg("")}
-        />
+        <IonToast isOpen={!!toastMsg} message={toastMsg} duration={2000} onDidDismiss={() => setToastMsg("")} />
       </IonContent>
     </IonPage>
   );

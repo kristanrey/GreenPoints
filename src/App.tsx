@@ -45,6 +45,7 @@ import Fetch from './pages/Fetch';
 import Event from './pages/Event';
 import UserEvent from './pages/UserEvent';
 import EventDetails from "./pages/EventDetails";
+import Participate from "./pages/Participate";
 
 
 
@@ -91,6 +92,7 @@ const App: React.FC = () => (
                    <Route path="/GreenPoints/event" component={Event} exact />
                    <Route path="/GreenPoints/userevent" component={UserEvent} exact />
                    <Route path="/GreenPoints/events/:id" component={EventDetails} exact />
+                   <Route path="/GreenPoints/participate" component={Participate} exact />
 
             
           

@@ -288,12 +288,13 @@ const UserDashboard: React.FC = () => {
           <IonButton
             expand="block"
             className="dashboard-button"
-            color="tertiary"
+            color="warning"
             href="/GreenPoints/streak"
           >
             <IonIcon icon={podium} slot="start" />
             Monitor Status
           </IonButton>
+
           <IonButton
             expand="block"
             className="dashboard-button"
@@ -303,6 +304,7 @@ const UserDashboard: React.FC = () => {
             <IonIcon icon={camera} slot="start" />
             Submit New Tree
           </IonButton>
+
           <IonButton
             expand="block"
             className="dashboard-button"
@@ -312,6 +314,7 @@ const UserDashboard: React.FC = () => {
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
           </IonButton>
+
           <IonButton
             expand="block"
             className="dashboard-button"
@@ -320,6 +323,16 @@ const UserDashboard: React.FC = () => {
           >
             <IonIcon icon={chatbox} slot="start" />
             Feedback
+          </IonButton>
+
+           <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="danger"
+            href="/GreenPoints/participate"
+          >
+            <IonIcon icon={chatbox} slot="start" />
+            Event
           </IonButton>
         </div>
 
