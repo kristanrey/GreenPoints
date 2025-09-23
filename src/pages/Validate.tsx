@@ -88,10 +88,20 @@ const ValidatePage: React.FC = () => {
       if (error) throw error;
 
       // Parse EXIF JSON string
-      const parsedData = data?.map((sub: any) => ({
-        ...sub,
-        exif_metadata: sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null,
-      }));
+      const parsedData = data?.map((sub: any) => {
+        const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
+
+        // ✅ Prefer EXIF GPS if available
+        const finalLat = exif?.latitude ?? sub.latitude;
+        const finalLng = exif?.longitude ?? sub.longitude;
+
+        return {
+          ...sub,
+          exif_metadata: exif,
+          latitude: finalLat,
+          longitude: finalLng,
+        };
+      });
 
       setSubmissions(parsedData);
     } catch (err: any) {
@@ -267,7 +277,7 @@ const ValidatePage: React.FC = () => {
                           </td>
                         </tr>
                         <tr>
-                          <td><b>GPS</b></td>
+                          <td><b>GPS (Raw)</b></td>
                           <td>{sub.latitude}, {sub.longitude}</td>
                         </tr>
                         <tr>
@@ -279,11 +289,11 @@ const ValidatePage: React.FC = () => {
                           <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td><b>Latitude</b></td>
+                          <td><b>Latitude (DMS)</b></td>
                           <td>{toDMS(sub.latitude, "lat")}</td>
                         </tr>
                         <tr>
-                          <td><b>Longitude</b></td>
+                          <td><b>Longitude (DMS)</b></td>
                           <td>{toDMS(sub.longitude, "lon")}</td>
                         </tr>
                       </tbody>
