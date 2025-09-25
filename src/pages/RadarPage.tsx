@@ -1,6 +1,15 @@
 // src/pages/RadarPage.tsx
-import React, { useEffect, useState } from "react";
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonSpinner, IonToast, IonButton } from "@ionic/react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonSpinner,
+  IonToast,
+  IonButton,
+} from "@ionic/react";
 import { useParams, useHistory } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
 
@@ -21,7 +30,10 @@ const RadarPage: React.FC = () => {
   const [distance, setDistance] = useState<number>(0);
   const [toastMsg, setToastMsg] = useState("");
 
-  // Get tree data
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sweepAngle = useRef(0);
+
+  // Fetch tree
   useEffect(() => {
     const fetchSubmission = async () => {
       const { data, error } = await supabase
@@ -39,7 +51,7 @@ const RadarPage: React.FC = () => {
     fetchSubmission();
   }, [id]);
 
-  // Track user location
+  // Track user
   useEffect(() => {
     if (!submission) return;
 
@@ -50,7 +62,6 @@ const RadarPage: React.FC = () => {
         setUserLat(lat);
         setUserLng(lng);
 
-        // Calculate bearing & distance
         const dist = getDistanceMeters(lat, lng, submission.latitude, submission.longitude);
         const brg = getBearing(lat, lng, submission.latitude, submission.longitude);
         setDistance(dist);
@@ -66,7 +77,77 @@ const RadarPage: React.FC = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [submission]);
 
-  // Haversine formula
+  // Radar drawing loop
+  useEffect(() => {
+    if (!canvasRef.current || !submission || !userLat || !userLng) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const radius = canvas.width / 2;
+    const centerX = radius;
+    const centerY = radius;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Radar background
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid circles
+      ctx.strokeStyle = "rgba(0,255,0,0.3)";
+      ctx.lineWidth = 1;
+      for (let r = radius / 4; r <= radius; r += radius / 4) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Sweep line
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      const sweepX = centerX + radius * Math.cos(sweepAngle.current);
+      const sweepY = centerY + radius * Math.sin(sweepAngle.current);
+      ctx.lineTo(sweepX, sweepY);
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 🔴 Draw user arrow at center pointing toward the tree
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate((bearing * Math.PI) / 180); // rotate arrow to face tree
+      ctx.beginPath();
+      ctx.moveTo(0, -12); // tip
+      ctx.lineTo(6, 8); // right wing
+      ctx.lineTo(-6, 8); // left wing
+      ctx.closePath();
+      ctx.fillStyle = "red";
+      ctx.fill();
+      ctx.restore();
+
+      // 🟢 Draw tree dot (relative position)
+      const brgRad = (bearing * Math.PI) / 180;
+      const distNorm = Math.min(distance / 100, 1) * radius; // scale: max 100m = edge
+      const dotX = centerX + distNorm * Math.cos(brgRad);
+      const dotY = centerY + distNorm * Math.sin(brgRad);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "lime";
+      ctx.fill();
+
+      // Rotate sweep
+      sweepAngle.current += 0.05;
+      if (sweepAngle.current > Math.PI * 2) sweepAngle.current = 0;
+
+      requestAnimationFrame(draw);
+    };
+
+    draw();
+  }, [bearing, distance, submission, userLat, userLng]);
+
+  // Distance
   const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371000;
     const toRad = (v: number) => (v * Math.PI) / 180;
@@ -78,7 +159,7 @@ const RadarPage: React.FC = () => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Bearing formula
+  // Bearing
   const getBearing = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const toDeg = (v: number) => (v * 180) / Math.PI;
@@ -104,34 +185,20 @@ const RadarPage: React.FC = () => {
         ) : (
           <>
             <h2>{submission.tree_type}</h2>
-            <p>Distance: {(distance / 1).toFixed(1)} meters</p>
+            <p>Distance: {distance.toFixed(1)} m</p>
             <p>Bearing: {bearing.toFixed(1)}°</p>
 
-            {/* Radar Canvas */}
-            <div
+            <canvas
+              ref={canvasRef}
+              width={300}
+              height={300}
               style={{
+                display: "block",
                 margin: "20px auto",
-                width: "250px",
-                height: "250px",
+                background: "black",
                 borderRadius: "50%",
-                border: "3px solid green",
-                position: "relative",
               }}
-            >
-              {/* Arrow pointing to tree */}
-              <div
-                style={{
-                  width: "4px",
-                  height: "100px",
-                  background: "red",
-                  position: "absolute",
-                  top: "25px",
-                  left: "50%",
-                  transform: `translateX(-50%) rotate(${bearing}deg)`,
-                  transformOrigin: "bottom center",
-                }}
-              ></div>
-            </div>
+            />
 
             <IonButton expand="block" onClick={() => history.goBack()}>
               🔙 Back
