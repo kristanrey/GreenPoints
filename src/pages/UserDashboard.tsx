@@ -292,7 +292,7 @@ const UserDashboard: React.FC = () => {
             href="/GreenPoints/streak"
           >
             <IonIcon icon={podium} slot="start" />
-            Monitor Status
+            Achievements
           </IonButton>
 
           <IonButton
@@ -333,6 +333,16 @@ const UserDashboard: React.FC = () => {
           >
             <IonIcon icon={chatbox} slot="start" />
             Event
+          </IonButton>
+
+           <IonButton
+            expand="block"
+            className="dashboard-button"
+            color="primary"
+            href="/GreenPoints/treemonitor"
+          >
+            <IonIcon icon={chatbox} slot="start" />
+            Monitor Tree
           </IonButton>
         </div>
 
