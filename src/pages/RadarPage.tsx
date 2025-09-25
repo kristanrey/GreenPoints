@@ -28,11 +28,13 @@ const RadarPage: React.FC = () => {
   const [userLng, setUserLng] = useState<number | null>(null);
   const [bearing, setBearing] = useState<number>(0);
   const [distance, setDistance] = useState<number>(0);
-  const [heading, setHeading] = useState<number>(0); // compass heading
+  const [heading, setHeading] = useState<number>(0);
   const [toastMsg, setToastMsg] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sweepAngle = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const beepInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch tree
   useEffect(() => {
@@ -74,8 +76,18 @@ const RadarPage: React.FC = () => {
         setUserLat((prev) => smoothUpdate(prev, lat));
         setUserLng((prev) => smoothUpdate(prev, lng));
 
-        const dist = getDistanceMeters(lat, lng, submission.latitude, submission.longitude);
-        const brg = getBearing(lat, lng, submission.latitude, submission.longitude);
+        const dist = getDistanceMeters(
+          lat,
+          lng,
+          submission.latitude,
+          submission.longitude
+        );
+        const brg = getBearing(
+          lat,
+          lng,
+          submission.latitude,
+          submission.longitude
+        );
         setDistance(dist);
         setBearing(brg);
       },
@@ -93,13 +105,44 @@ const RadarPage: React.FC = () => {
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       if (e.alpha !== null) {
-        // alpha = compass direction (0 = North)
         setHeading(e.alpha);
       }
     };
     window.addEventListener("deviceorientation", handleOrientation, true);
-    return () => window.removeEventListener("deviceorientation", handleOrientation);
+    return () =>
+      window.removeEventListener("deviceorientation", handleOrientation);
   }, []);
+
+  // ✅ Beeping logic
+  useEffect(() => {
+    if (distance > 0 && distance <= 5) {
+      if (!beepInterval.current) {
+        setToastMsg("🌳 You’re very close to the tree!");
+        // Start beeping every 1 second
+        beepInterval.current = setInterval(() => {
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0; // rewind to start
+            audioRef.current
+              .play()
+              .catch((err) => console.warn("Audio blocked:", err));
+          }
+        }, 1000);
+      }
+    } else {
+      // Stop beeping if outside 5m
+      if (beepInterval.current) {
+        clearInterval(beepInterval.current);
+        beepInterval.current = null;
+      }
+    }
+
+    return () => {
+      if (beepInterval.current) {
+        clearInterval(beepInterval.current);
+        beepInterval.current = null;
+      }
+    };
+  }, [distance]);
 
   // Radar drawing loop
   useEffect(() => {
@@ -138,12 +181,10 @@ const RadarPage: React.FC = () => {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 🔴 Arrow: user facing direction (tree relative to heading)
+      // 🔴 Arrow: user facing direction
       ctx.save();
       ctx.translate(centerX, centerY);
-
       const relativeBearing = ((bearing - heading) * Math.PI) / 180;
-
       ctx.rotate(relativeBearing);
       ctx.beginPath();
       ctx.moveTo(0, -12);
@@ -154,7 +195,7 @@ const RadarPage: React.FC = () => {
       ctx.fill();
       ctx.restore();
 
-      // 🟢 Tree dot (distance scaled dynamically)
+      // 🟢 Tree dot
       const brgRad = ((bearing - heading) * Math.PI) / 180;
       const maxRange = 200; // 200m = edge of radar
       const distNorm = Math.min(distance / maxRange, 1) * radius;
@@ -176,19 +217,31 @@ const RadarPage: React.FC = () => {
   }, [bearing, distance, heading, submission, userLat, userLng]);
 
   // Distance
-  const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const getDistanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const R = 6371000;
     const toRad = (v: number) => (v * Math.PI) / 180;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   // Bearing
-  const getBearing = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const getBearing = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const toDeg = (v: number) => (v * 180) / Math.PI;
     const dLon = toRad(lon2 - lon1);
@@ -208,6 +261,9 @@ const RadarPage: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding" style={{ textAlign: "center" }}>
+        {/* Hidden audio element */}
+        <audio ref={audioRef} src="/notification.mp3" preload="auto" />
+
         {!submission || !userLat || !userLng ? (
           <IonSpinner name="crescent" />
         ) : (
@@ -238,7 +294,7 @@ const RadarPage: React.FC = () => {
         <IonToast
           isOpen={!!toastMsg}
           message={toastMsg}
-          duration={2000}
+          duration={2500}
           onDidDismiss={() => setToastMsg("")}
         />
       </IonContent>
