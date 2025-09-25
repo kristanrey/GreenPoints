@@ -28,6 +28,7 @@ const RadarPage: React.FC = () => {
   const [userLng, setUserLng] = useState<number | null>(null);
   const [bearing, setBearing] = useState<number>(0);
   const [distance, setDistance] = useState<number>(0);
+  const [heading, setHeading] = useState<number>(0); // compass heading
   const [toastMsg, setToastMsg] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,7 +52,17 @@ const RadarPage: React.FC = () => {
     fetchSubmission();
   }, [id]);
 
-  // Track user
+  // Smooth location (low-pass filter)
+  const smoothUpdate = (
+    prev: number | null,
+    next: number,
+    alpha: number = 0.2
+  ) => {
+    if (prev === null) return next;
+    return prev + alpha * (next - prev);
+  };
+
+  // Track user position
   useEffect(() => {
     if (!submission) return;
 
@@ -59,8 +70,9 @@ const RadarPage: React.FC = () => {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        setUserLat(lat);
-        setUserLng(lng);
+
+        setUserLat((prev) => smoothUpdate(prev, lat));
+        setUserLng((prev) => smoothUpdate(prev, lng));
 
         const dist = getDistanceMeters(lat, lng, submission.latitude, submission.longitude);
         const brg = getBearing(lat, lng, submission.latitude, submission.longitude);
@@ -71,11 +83,23 @@ const RadarPage: React.FC = () => {
         setToastMsg("⚠️ Location error");
         console.error(err);
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, maximumAge: 500, timeout: 5000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [submission]);
+
+  // Device orientation (for compass heading)
+  useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.alpha !== null) {
+        // alpha = compass direction (0 = North)
+        setHeading(e.alpha);
+      }
+    };
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => window.removeEventListener("deviceorientation", handleOrientation);
+  }, []);
 
   // Radar drawing loop
   useEffect(() => {
@@ -91,7 +115,7 @@ const RadarPage: React.FC = () => {
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Radar background
+      // Background
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -114,22 +138,26 @@ const RadarPage: React.FC = () => {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 🔴 Draw user arrow at center pointing toward the tree
+      // 🔴 Arrow: user facing direction (tree relative to heading)
       ctx.save();
       ctx.translate(centerX, centerY);
-      ctx.rotate((bearing * Math.PI) / 180); // rotate arrow to face tree
+
+      const relativeBearing = ((bearing - heading) * Math.PI) / 180;
+
+      ctx.rotate(relativeBearing);
       ctx.beginPath();
-      ctx.moveTo(0, -12); // tip
-      ctx.lineTo(6, 8); // right wing
-      ctx.lineTo(-6, 8); // left wing
+      ctx.moveTo(0, -12);
+      ctx.lineTo(6, 8);
+      ctx.lineTo(-6, 8);
       ctx.closePath();
       ctx.fillStyle = "red";
       ctx.fill();
       ctx.restore();
 
-      // 🟢 Draw tree dot (relative position)
-      const brgRad = (bearing * Math.PI) / 180;
-      const distNorm = Math.min(distance / 100, 1) * radius; // scale: max 100m = edge
+      // 🟢 Tree dot (distance scaled dynamically)
+      const brgRad = ((bearing - heading) * Math.PI) / 180;
+      const maxRange = 200; // 200m = edge of radar
+      const distNorm = Math.min(distance / maxRange, 1) * radius;
       const dotX = centerX + distNorm * Math.cos(brgRad);
       const dotY = centerY + distNorm * Math.sin(brgRad);
       ctx.beginPath();
@@ -145,7 +173,7 @@ const RadarPage: React.FC = () => {
     };
 
     draw();
-  }, [bearing, distance, submission, userLat, userLng]);
+  }, [bearing, distance, heading, submission, userLat, userLng]);
 
   // Distance
   const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -187,6 +215,7 @@ const RadarPage: React.FC = () => {
             <h2>{submission.tree_type}</h2>
             <p>Distance: {distance.toFixed(1)} m</p>
             <p>Bearing: {bearing.toFixed(1)}°</p>
+            <p>Heading: {heading.toFixed(1)}°</p>
 
             <canvas
               ref={canvasRef}
