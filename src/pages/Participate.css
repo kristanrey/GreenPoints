@@ -1,0 +1,139 @@
+/* ===================== */
+/* Global Page Styling   */
+/* ===================== */
+ion-content {
+  --background: #f5f7fa; /* unified light gray background like dashboard */
+  font-family: "Segoe UI", Roboto, sans-serif;
+  padding: 16px;
+}
+
+/* ===================== */
+/* Header Toolbar        */
+/* ===================== */
+ion-toolbar {
+  --background: #2e7d32; /* GreenPoints main brand color */
+  --color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* ===================== */
+/* Event Card            */
+/* ===================== */
+ion-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin: 16px 0;
+  background: #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+ion-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+ion-card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+/* Event Description */
+ion-card-content ion-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #444;
+}
+
+/* ===================== */
+/* Countdown Timer       */
+/* ===================== */
+.countdown-timer {
+  display: block;
+  margin: 20px auto;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 250px;
+}
+
+.countdown-timer.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.countdown-timer.danger {
+  background: #fdecea;
+  color: #d32f2f;
+}
+
+/* ===================== */
+/* Buttons               */
+/* ===================== */
+.take-picture-btn {
+  --background: linear-gradient(135deg, #43a047, #2e7d32);
+  --border-radius: 12px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.take-picture-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+}
+
+/* ===================== */
+/* Image Preview         */
+/* ===================== */
+ion-card img {
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+}
+
+/* ===================== */
+/* Toast Styling         */
+/* ===================== */
+ion-toast {
+  --background: #2e7d32;
+  --color: #fff;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+/* ===================== */
+/* Sidebar Consistency   */
+/* ===================== */
+.sidebar {
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+  padding: 16px;
+  min-height: 100%;
+}
+
+.sidebar .logo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2e7d32;
+  margin-bottom: 20px;
+}
+
+.sidebar ion-item {
+  --background: transparent;
+  --color: #333;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: background 0.2s ease;
+}
+
+.sidebar ion-item:hover {
+  --background: #e8f5e9;
+  --color: #2e7d32;
+}

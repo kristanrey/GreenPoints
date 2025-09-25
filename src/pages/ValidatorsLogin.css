@@ -7,7 +7,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  height: 100%;      /* fill IonContent */
+  min-height: 100vh; /* fallback full height */
   padding: 16px;
 }
 
@@ -24,6 +25,7 @@
   backdrop-filter: blur(8px);
   text-align: center;
   animation: fadeIn 0.5s ease;
+  margin: auto;   /* ensures proper centering */
 }
 
 /* Heading */

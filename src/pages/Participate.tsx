@@ -20,6 +20,7 @@ import {
   RefresherEventDetail,
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
+import "./Participate.css";
 
 interface Event {
   event_id: number;
