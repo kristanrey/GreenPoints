@@ -122,6 +122,24 @@ const MySubmissions: React.FC = () => {
     return `${d}° ${m}' ${s}" ${dir}`;
   };
 
+  // ✅ Haversine formula to calculate distance (in meters)
+  const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371000; // Earth radius in meters
+    const toRad = (value: number) => (value * Math.PI) / 180;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  };
+
   // ✅ Increment visit number in database
   const incrementVisits = async (submission: Submission) => {
     try {
@@ -145,7 +163,7 @@ const MySubmissions: React.FC = () => {
     }
   };
 
-  // ✅ Open Google Maps with turn-by-turn directions
+  // ✅ Open Google Maps & check if user is within 1 meter
   const handleFind = (submission: Submission) => {
     const { latitude: lat, longitude: lng } = submission;
 
@@ -161,10 +179,16 @@ const MySubmissions: React.FC = () => {
           const userLat = position.coords.latitude;
           const userLng = position.coords.longitude;
 
+          const distance = getDistanceMeters(userLat, userLng, lat, lng);
+
+          if (distance <= 1) {
+            setToastMsg("🎉 You are at the tree location! 🌳");
+            setShowToast(true);
+          }
+
           const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
           window.open(mapsUrl, "_blank");
 
-          // Count as a visit
           incrementVisits(submission);
         },
         (error) => {
@@ -172,11 +196,9 @@ const MySubmissions: React.FC = () => {
           setToastMsg("⚠️ Could not detect your location");
           setShowToast(true);
 
-          // Fallback: only destination
           const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
           window.open(mapsUrl, "_blank");
 
-          // Still count as a visit
           incrementVisits(submission);
         }
       );
@@ -187,7 +209,6 @@ const MySubmissions: React.FC = () => {
       const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
       window.open(mapsUrl, "_blank");
 
-      // Still count as a visit
       incrementVisits(submission);
     }
   };
