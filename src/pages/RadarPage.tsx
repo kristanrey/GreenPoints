@@ -113,12 +113,12 @@ const RadarPage: React.FC = () => {
       window.removeEventListener("deviceorientation", handleOrientation);
   }, []);
 
-  // ✅ Beeping logic
+  // ✅ Beeping logic (plays at 7 meters)
   useEffect(() => {
-    if (distance > 0 && distance <= 5) {
+    if (distance > 0 && distance <= 7) { // 🔥 changed from 5m to 7m
       if (!beepInterval.current) {
-        setToastMsg("🌳 You’re very close to the tree!");
-        // Start beeping every 1 second
+        setToastMsg("🎵 You're close to the tree!");
+        // Start beeping/music every 1 second
         beepInterval.current = setInterval(() => {
           if (audioRef.current) {
             audioRef.current.currentTime = 0; // rewind to start
@@ -129,7 +129,7 @@ const RadarPage: React.FC = () => {
         }, 1000);
       }
     } else {
-      // Stop beeping if outside 5m
+      // Stop beeping/music if outside 7m
       if (beepInterval.current) {
         clearInterval(beepInterval.current);
         beepInterval.current = null;
