@@ -123,7 +123,12 @@ const MySubmissions: React.FC = () => {
   };
 
   // ✅ Haversine formula to calculate distance (in meters)
-  const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const getDistanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const R = 6371000; // Earth radius in meters
     const toRad = (value: number) => (value * Math.PI) / 180;
 
@@ -217,6 +222,11 @@ const MySubmissions: React.FC = () => {
     history.push(`/take-picture/${submission.submission_id}`);
   };
 
+  // ✅ NEW: Open Radar Page
+  const handleRadar = (submission: Submission) => {
+    history.push(`/radar/${submission.submission_id}`);
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -287,6 +297,13 @@ const MySubmissions: React.FC = () => {
                       </IonButton>
                       <IonButton
                         expand="block"
+                        color="warning"
+                        onClick={() => handleRadar(sub)}
+                      >
+                        🧭 Radar
+                      </IonButton>
+                      <IonButton
+                        expand="block"
                         color="primary"
                         onClick={() => handleTakePicture(sub)}
                       >
@@ -311,39 +328,53 @@ const MySubmissions: React.FC = () => {
                     <table style={{ width: "100%", fontSize: "14px" }}>
                       <tbody>
                         <tr>
-                          <td><b>Date taken</b></td>
+                          <td>
+                            <b>Date taken</b>
+                          </td>
                           <td>
                             {sub.exif_metadata?.DateTimeOriginal ||
                               sub.date_planted}
                           </td>
                         </tr>
                         <tr>
-                          <td><b>Device</b></td>
+                          <td>
+                            <b>Device</b>
+                          </td>
                           <td>
                             {sub.exif_metadata?.Make || "Unknown"}{" "}
                             {sub.exif_metadata?.Model || ""}
                           </td>
                         </tr>
                         <tr>
-                          <td><b>GPS (Raw)</b></td>
+                          <td>
+                            <b>GPS (Raw)</b>
+                          </td>
                           <td>
                             {sub.latitude}, {sub.longitude}
                           </td>
                         </tr>
                         <tr>
-                          <td><b>Orientation</b></td>
+                          <td>
+                            <b>Orientation</b>
+                          </td>
                           <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td><b>Exif version</b></td>
+                          <td>
+                            <b>Exif version</b>
+                          </td>
                           <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td><b>Latitude (DMS)</b></td>
+                          <td>
+                            <b>Latitude (DMS)</b>
+                          </td>
                           <td>{toDMS(sub.latitude, "lat")}</td>
                         </tr>
                         <tr>
-                          <td><b>Longitude (DMS)</b></td>
+                          <td>
+                            <b>Longitude (DMS)</b>
+                          </td>
                           <td>{toDMS(sub.longitude, "lon")}</td>
                         </tr>
                       </tbody>
