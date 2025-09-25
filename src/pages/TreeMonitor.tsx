@@ -1,231 +1,348 @@
+// src/pages/MySubmissions.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
+  IonContent,
   IonHeader,
   IonToolbar,
   IonTitle,
-  IonContent,
   IonButton,
   IonToast,
+  IonSpinner,
+  IonImg,
   IonCard,
   IonCardHeader,
   IonCardTitle,
   IonCardContent,
-  IonImg,
-  IonSpinner,
+  IonButtons,
 } from "@ionic/react";
+import { useHistory } from "react-router";
 import { supabase } from "../utils/supabaseClient";
 
-/** Haversine distance in meters */
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // meters
-  const toRad = (v: number) => (v * Math.PI) / 180;
-  const φ1 = toRad(lat1);
-  const φ2 = toRad(lat2);
-  const Δφ = toRad(lat2 - lat1);
-  const Δλ = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+interface Submission {
+  submission_id: number;
+  user_id: string;
+  image_url: string;
+  tree_type: string;
+  date_planted: string;
+  location_description: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  exif_metadata?: any;
+  visits?: number;
 }
 
-const MonitorTree: React.FC<{ submission: any }> = ({ submission }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
+const MySubmissions: React.FC = () => {
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toastMsg, setToastMsg] = useState("");
+  const [showToast, setShowToast] = useState(false);
+  const [userName, setUserName] = useState("");
+  const history = useHistory();
 
-  // fetch current user from Supabase and listen to auth changes
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    const checkUserAccess = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        if (!mounted) return;
-        setUser(data?.user ?? null);
-      } catch (err) {
-        console.error("getUser error", err);
-      }
-    })();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setToastMsg("⚠️ Please login first");
+          setShowToast(true);
+          history.push("/login");
+          return;
+        }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-    return () => {
-      mounted = false;
-      // unsubscribe listener if present
-      try {
-        // @ts-ignore
-        listener?.subscription?.unsubscribe?.();
-      } catch {
-        // ignore
+        setUserName(
+          profile?.full_name ||
+            user.user_metadata?.full_name ||
+            user.email ||
+            "User"
+        );
+
+        fetchApprovedSubmissions();
+      } catch (err: any) {
+        setUserName("User");
+        setToastMsg(`Error: ${err.message}`);
+        setShowToast(true);
+        history.push("/login");
       }
     };
-  }, []);
 
-  // Use exifr.gps(file) directly (exifr accepts File/Blob)
-  const getGpsFromImage = async (file: File): Promise<{ lat: number; lon: number } | null> => {
+    checkUserAccess();
+  }, [history]);
+
+  const fetchApprovedSubmissions = async () => {
+    setLoading(true);
     try {
-      const exifr = await import("exifr");
-      const exifData = await exifr.gps(file as any);
-      if (exifData?.latitude && exifData?.longitude) {
-        return { lat: exifData.latitude, lon: exifData.longitude };
-      }
-      return null;
+      const { data, error } = await supabase
+        .from("tree_submissions")
+        .select("*")
+        .ilike("status", "approved")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const parsedData =
+        data?.map((sub: any) => {
+          const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
+          const finalLat = exif?.latitude ?? sub.latitude;
+          const finalLng = exif?.longitude ?? sub.longitude;
+
+          return {
+            ...sub,
+            exif_metadata: exif,
+            latitude: finalLat,
+            longitude: finalLng,
+            visits: sub.visits || 0,
+          };
+        }) || [];
+
+      setSubmissions(parsedData);
+    } catch (err: any) {
+      setToastMsg(`Error fetching submissions: ${err.message}`);
+      setShowToast(true);
+    }
+    setLoading(false);
+  };
+
+  const toDMS = (deg: number, type: "lat" | "lon") => {
+    if (!deg) return "N/A";
+    const d = Math.floor(Math.abs(deg));
+    const m = Math.floor((Math.abs(deg) - d) * 60);
+    const s = ((Math.abs(deg) - d - m / 60) * 3600).toFixed(2);
+    const dir = type === "lat" ? (deg >= 0 ? "N" : "S") : deg >= 0 ? "E" : "W";
+    return `${d}° ${m}' ${s}" ${dir}`;
+  };
+
+  // ✅ Increment visit number in database
+  const incrementVisits = async (submission: Submission) => {
+    try {
+      const newVisits = (submission.visits || 0) + 1;
+      const { error } = await supabase
+        .from("tree_submissions")
+        .update({ visits: newVisits })
+        .eq("submission_id", submission.submission_id);
+
+      if (error) throw error;
+
+      setSubmissions((prev) =>
+        prev.map((s) =>
+          s.submission_id === submission.submission_id
+            ? { ...s, visits: newVisits }
+            : s
+        )
+      );
     } catch (err) {
-      console.error("EXIF parse error:", err);
-      return null;
+      console.error("Error updating visits:", err);
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!submission) {
-      setToastMessage("No submission selected.");
-      return;
-    }
-    if (!user) {
-      setToastMessage("Please sign in before monitoring.");
-      return;
-    }
+  // ✅ Open Google Maps with turn-by-turn directions
+  const handleFind = (submission: Submission) => {
+    const { latitude: lat, longitude: lng } = submission;
 
-    setPreview(URL.createObjectURL(file));
-    setLoading(true);
-
-    // 1) extract gps
-    const gps = await getGpsFromImage(file);
-    if (!gps) {
-      setToastMessage("❌ No GPS in image. Enable location when taking photos.");
-      setLoading(false);
+    if (!lat || !lng) {
+      setToastMsg("⚠️ Tree location not available");
+      setShowToast(true);
       return;
     }
 
-    // 2) compare with registered tree location (1 meter tolerance)
-    const distance = getDistance(
-      Number(submission.latitude),
-      Number(submission.longitude),
-      gps.lat,
-      gps.lon
-    );
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
 
-    const status = distance <= 1 ? "Valid" : "Invalid";
-    setToastMessage(status === "Valid" ? "✅ Location verified (≤ 1 m)." : `❌ Not within 1 m (distance: ${distance.toFixed(2)} m)`);
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
+          window.open(mapsUrl, "_blank");
 
-    try {
-      // 3) upload to Supabase Storage
-      // ensure you have a bucket named 'tree-images' in Supabase
-      const ext = file.name.split(".").pop();
-      const filePath = `monitoring/${user.id}/${Date.now()}.${ext}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("tree-images")
-        .upload(filePath, file, { upsert: false });
-
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        // try upsert true if file exists
-        const { data: upsertData, error: upsertError } = await supabase.storage
-          .from("tree-images")
-          .upload(filePath, file, { upsert: true });
-        if (upsertError) {
-          setToastMessage("❌ Upload failed.");
-          setLoading(false);
-          return;
-        }
-      }
-
-      const { data: publicUrlData } = supabase.storage.from("tree-images").getPublicUrl(filePath);
-      const imageUrl = publicUrlData?.publicUrl ?? "";
-
-      // 4) insert into tree_monitoring table
-      const { error: insertError } = await supabase.from("tree_monitoring").insert([
-        {
-          submission_id: submission.submission_id,
-          user_id: user.id,
-          latitude: gps.lat,
-          longitude: gps.lon,
-          image_url: imageUrl,
-          status: status,
+          // Count as a visit
+          incrementVisits(submission);
         },
-      ]);
+        (error) => {
+          console.error("Geolocation error:", error);
+          setToastMsg("⚠️ Could not detect your location");
+          setShowToast(true);
 
-      if (insertError) {
-        console.error("Insert error:", insertError);
-        setToastMessage("❌ Could not save monitoring record.");
-        setLoading(false);
-        return;
-      }
+          // Fallback: only destination
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+          window.open(mapsUrl, "_blank");
 
-      // done
-    } catch (err) {
-      console.error("Monitoring flow error:", err);
-      setToastMessage("❌ Unexpected error. Check console.");
-    } finally {
-      setLoading(false);
+          // Still count as a visit
+          incrementVisits(submission);
+        }
+      );
+    } else {
+      setToastMsg("⚠️ Geolocation not supported by this browser");
+      setShowToast(true);
+
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      window.open(mapsUrl, "_blank");
+
+      // Still count as a visit
+      incrementVisits(submission);
     }
+  };
+
+  const handleTakePicture = (submission: Submission) => {
+    history.push(`/take-picture/${submission.submission_id}`);
   };
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Monitor Tree</IonTitle>
+          <IonTitle>Approved Trees</IonTitle>
+          <IonButtons slot="end">
+            <IonButton fill="clear"> 👤 {userName || "Loading..."} </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
 
       <IonContent className="ion-padding">
-        <IonCard>
-          <IonCardHeader>
-            <IonCardTitle>Registered Tree</IonCardTitle>
-          </IonCardHeader>
-          <IonCardContent>
-            {submission?.image_url && <IonImg src={submission.image_url} />}
-            <p>📍 Lat: {submission?.latitude}, Lon: {submission?.longitude}</p>
-            <p>🌱 Type: {submission?.tree_type}</p>
-          </IonCardContent>
-        </IonCard>
+        {loading ? (
+          <IonSpinner name="crescent" />
+        ) : submissions.length === 0 ? (
+          <p>No approved tree submissions yet 🌱</p>
+        ) : (
+          submissions.map((sub) => (
+            <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
+              <IonCardHeader>
+                <IonCardTitle style={{ fontSize: "20px", fontWeight: "600" }}>
+                  Approved Tree
+                </IonCardTitle>
+              </IonCardHeader>
+              <IonCardContent>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "24px",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {/* Left: Tree photo */}
+                  <div style={{ textAlign: "center" }}>
+                    {sub.image_url ? (
+                      <IonImg
+                        src={sub.image_url}
+                        style={{
+                          width: "100%",
+                          height: "auto",
+                          maxWidth: "100%",
+                          maxHeight: "400px",
+                          objectFit: "contain",
+                          borderRadius: "8px",
+                          background: "#fafafa",
+                          padding: "8px",
+                        }}
+                      />
+                    ) : (
+                      <p>📷 Image not available</p>
+                    )}
+                    <p style={{ marginTop: "8px", fontStyle: "italic" }}>
+                      {sub.tree_type || "Planted a new tree"}
+                    </p>
 
-        <IonButton expand="block">
-          <label style={{ width: "100%" }}>
-            Take/Upload Monitoring Photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleImageUpload}
-            />
-          </label>
-        </IonButton>
+                    {/* ✅ Buttons */}
+                    <div style={{ marginTop: "12px" }}>
+                      <IonButton expand="block" color="success">
+                        👣 Visits: {sub.visits || 0}
+                      </IonButton>
+                      <IonButton
+                        expand="block"
+                        color="tertiary"
+                        onClick={() => handleFind(sub)}
+                      >
+                        📍 Find
+                      </IonButton>
+                      <IonButton
+                        expand="block"
+                        color="primary"
+                        onClick={() => handleTakePicture(sub)}
+                      >
+                        📸 Take Picture
+                      </IonButton>
+                    </div>
+                  </div>
 
-        {loading && <IonSpinner className="ion-margin" />}
-
-        {preview && (
-          <IonCard>
-            <IonCardHeader>
-              <IonCardTitle>Preview</IonCardTitle>
-            </IonCardHeader>
-            <IonCardContent>
-              <IonImg src={preview} />
-            </IonCardContent>
-          </IonCard>
+                  {/* Right: EXIF Metadata */}
+                  <div
+                    style={{
+                      border: "1px solid #e0e0e0",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
+                      EXIF Metadata
+                    </h4>
+                    <table style={{ width: "100%", fontSize: "14px" }}>
+                      <tbody>
+                        <tr>
+                          <td><b>Date taken</b></td>
+                          <td>
+                            {sub.exif_metadata?.DateTimeOriginal ||
+                              sub.date_planted}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>Device</b></td>
+                          <td>
+                            {sub.exif_metadata?.Make || "Unknown"}{" "}
+                            {sub.exif_metadata?.Model || ""}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>GPS (Raw)</b></td>
+                          <td>
+                            {sub.latitude}, {sub.longitude}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><b>Orientation</b></td>
+                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Exif version</b></td>
+                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Latitude (DMS)</b></td>
+                          <td>{toDMS(sub.latitude, "lat")}</td>
+                        </tr>
+                        <tr>
+                          <td><b>Longitude (DMS)</b></td>
+                          <td>{toDMS(sub.longitude, "lon")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </IonCardContent>
+            </IonCard>
+          ))
         )}
 
         <IonToast
-          isOpen={!!toastMessage}
-          message={toastMessage}
-          duration={5000}
-          onDidDismiss={() => setToastMessage("")}
+          isOpen={showToast}
+          message={toastMsg}
+          duration={2000}
+          onDidDismiss={() => setShowToast(false)}
         />
       </IonContent>
     </IonPage>
   );
 };
 
-export default MonitorTree;
+export default MySubmissions;
