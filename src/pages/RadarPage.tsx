@@ -262,7 +262,7 @@ const RadarPage: React.FC = () => {
 
       <IonContent className="ion-padding" style={{ textAlign: "center" }}>
         {/* Hidden audio element */}
-        <audio ref={audioRef} src="/notification.mp3" preload="auto" />
+        <audio ref={audioRef} src="/Yamete Kudasai.mp3" preload="auto" />
 
         {!submission || !userLat || !userLng ? (
           <IonSpinner name="crescent" />
