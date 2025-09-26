@@ -48,6 +48,7 @@ import EventDetails from "./pages/EventDetails";
 import Participate from "./pages/Participate";
 import TreeMonitor from "./pages/TreeMonitor";
 import RadarPage from "./pages/RadarPage";
+import TakePicture from "./pages/TakePicture";
 
 
 
@@ -97,6 +98,7 @@ const App: React.FC = () => (
                    <Route path="/GreenPoints/participate" component={Participate} exact />
                     <Route path="/GreenPoints/treemonitor" component={TreeMonitor} exact />
                     <Route path="/radar/:id" component={RadarPage} exact />
+                     <Route path="/take-picture/:submission_id" component={TakePicture} exact />
 
 
             

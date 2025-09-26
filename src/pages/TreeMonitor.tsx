@@ -16,7 +16,7 @@ import {
   IonCardContent,
   IonButtons,
 } from "@ionic/react";
-import { useHistory } from "react-router";
+import { useHistory, useLocation } from "react-router";
 import { supabase } from "../utils/supabaseClient";
 
 interface Submission {
@@ -40,6 +40,7 @@ const MySubmissions: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [userName, setUserName] = useState("");
   const history = useHistory();
+  const location = useLocation<{ fromTakePicture?: boolean }>();
 
   useEffect(() => {
     const checkUserAccess = async () => {
@@ -78,6 +79,13 @@ const MySubmissions: React.FC = () => {
 
     checkUserAccess();
   }, [history]);
+
+  // Refresh submissions automatically if returning from TakePicture page
+  useEffect(() => {
+    if (location.state?.fromTakePicture) {
+      fetchApprovedSubmissions();
+    }
+  }, [location.state]);
 
   const fetchApprovedSubmissions = async () => {
     setLoading(true);
@@ -146,6 +154,8 @@ const MySubmissions: React.FC = () => {
 
   const incrementVisits = async (submission: Submission) => {
     try {
+      if ((submission.visits || 0) >= 5) return; // stop at 5 visits
+
       const newVisits = (submission.visits || 0) + 1;
       const { error } = await supabase
         .from("tree_submissions")
@@ -214,12 +224,55 @@ const MySubmissions: React.FC = () => {
     }
   };
 
-  const handleTakePicture = (submission: Submission) => {
-    history.push(`/take-picture/${submission.submission_id}`);
-  };
-
   const handleRadar = (submission: Submission) => {
     history.push(`/radar/${submission.submission_id}`);
+  };
+
+  // ✅ Safe handleSubmitMonitoring
+  const handleSubmitMonitoring = async (submission: Submission, imageUrl: string) => {
+    if (!imageUrl) {
+      setToastMsg("⚠️ Image URL is required to submit monitoring");
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      // Allowed status values (match PostgreSQL check constraint)
+      const allowedStatuses = ["pending", "approved", "rejected"];
+      const statusToUse = allowedStatuses[0]; // use 'pending' by default
+
+      const { error: monitorError } = await supabase.from("tree_monitoring").insert([
+        {
+          submission_id: submission.submission_id,
+          user_id: submission.user_id,
+          latitude: submission.latitude,
+          longitude: submission.longitude,
+          image_url: imageUrl,
+          monitored_at: new Date().toISOString(),
+          status: statusToUse,
+          notes: "",
+        },
+      ]);
+
+      if (monitorError) throw monitorError;
+
+      // Increment visits (max 5)
+      if ((submission.visits || 0) < 5) {
+        incrementVisits(submission);
+        setToastMsg(`✅ Monitoring submitted! Visits: ${(submission.visits || 0) + 1}/5`);
+      } else {
+        setToastMsg("⚠️ This tree has reached maximum visits (5)");
+      }
+      setShowToast(true);
+    } catch (err: any) {
+      setToastMsg(`Error submitting monitoring: ${err.message}`);
+      setShowToast(true);
+    }
+  };
+
+  const handleTakePicture = (submission: Submission) => {
+    // Navigate to TakePicture page
+    history.push(`/take-picture/${submission.submission_id}`);
   };
 
   return (
@@ -304,7 +357,7 @@ const MySubmissions: React.FC = () => {
                   {/* Buttons */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                     <IonButton expand="block" color="success">
-                      👣 Visits: {sub.visits || 0}
+                      👣 Visits: {sub.visits || 0}/5
                     </IonButton>
                     <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>
                       📍 Location
@@ -312,8 +365,13 @@ const MySubmissions: React.FC = () => {
                     <IonButton expand="block" color="warning" onClick={() => handleRadar(sub)}>
                       🧭 Radar
                     </IonButton>
-                    <IonButton expand="block" color="primary" onClick={() => handleTakePicture(sub)}>
-                      📸 Take Picture
+                    <IonButton
+                      expand="block"
+                      color="primary"
+                      disabled={(sub.visits || 0) >= 5}
+                      onClick={() => handleTakePicture(sub)}
+                    >
+                      📸 Take Picture {(sub.visits || 0) >= 5 ? "(Max visits reached)" : ""}
                     </IonButton>
                   </div>
                 </div>
