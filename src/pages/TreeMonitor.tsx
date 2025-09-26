@@ -122,14 +122,13 @@ const MySubmissions: React.FC = () => {
     return `${d}° ${m}' ${s}" ${dir}`;
   };
 
-  // ✅ Haversine formula to calculate distance (in meters)
   const getDistanceMeters = (
     lat1: number,
     lon1: number,
     lat2: number,
     lon2: number
   ) => {
-    const R = 6371000; // Earth radius in meters
+    const R = 6371000;
     const toRad = (value: number) => (value * Math.PI) / 180;
 
     const dLat = toRad(lat2 - lat1);
@@ -145,7 +144,6 @@ const MySubmissions: React.FC = () => {
     return R * c;
   };
 
-  // ✅ Increment visit number in database
   const incrementVisits = async (submission: Submission) => {
     try {
       const newVisits = (submission.visits || 0) + 1;
@@ -168,7 +166,6 @@ const MySubmissions: React.FC = () => {
     }
   };
 
-  // ✅ Open Google Maps & check if user is within 1 meter
   const handleFind = (submission: Submission) => {
     const { latitude: lat, longitude: lng } = submission;
 
@@ -196,8 +193,7 @@ const MySubmissions: React.FC = () => {
 
           incrementVisits(submission);
         },
-        (error) => {
-          console.error("Geolocation error:", error);
+        () => {
           setToastMsg("⚠️ Could not detect your location");
           setShowToast(true);
 
@@ -222,7 +218,6 @@ const MySubmissions: React.FC = () => {
     history.push(`/take-picture/${submission.submission_id}`);
   };
 
-  // ✅ NEW: Open Radar Page
   const handleRadar = (submission: Submission) => {
     history.push(`/radar/${submission.submission_id}`);
   };
@@ -254,131 +249,72 @@ const MySubmissions: React.FC = () => {
               <IonCardContent>
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "24px",
-                    alignItems: "flex-start",
+                    border: "1px solid #e0e0e0",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "12px",
                   }}
                 >
-                  {/* Left: Tree photo */}
-                  <div style={{ textAlign: "center" }}>
-                    {sub.image_url ? (
-                      <IonImg
-                        src={sub.image_url}
-                        style={{
-                          width: "100%",
-                          height: "auto",
-                          maxWidth: "100%",
-                          maxHeight: "400px",
-                          objectFit: "contain",
-                          borderRadius: "8px",
-                          background: "#fafafa",
-                          padding: "8px",
-                        }}
-                      />
-                    ) : (
-                      <p>📷 Image not available</p>
-                    )}
-                    <p style={{ marginTop: "8px", fontStyle: "italic" }}>
-                      {sub.tree_type || "Planted a new tree"}
-                    </p>
+                  {/* Image */}
+                  {sub.image_url ? (
+                    <IonImg
+                      src={sub.image_url}
+                      style={{
+                        width: "100%",
+                        maxWidth: "400px",
+                        height: "auto",
+                        borderRadius: "8px",
+                        objectFit: "contain",
+                        background: "#fafafa",
+                        padding: "8px",
+                      }}
+                    />
+                  ) : (
+                    <p>📷 Image not available</p>
+                  )}
 
-                    {/* ✅ Buttons */}
-                    <div style={{ marginTop: "12px" }}>
-                      <IonButton expand="block" color="success">
-                        👣 Visits: {sub.visits || 0}
-                      </IonButton>
-                      <IonButton
-                        expand="block"
-                        color="tertiary"
-                        onClick={() => handleFind(sub)}
-                      >
-                        📍 Find
-                      </IonButton>
-                      <IonButton
-                        expand="block"
-                        color="warning"
-                        onClick={() => handleRadar(sub)}
-                      >
-                        🧭 Radar
-                      </IonButton>
-                      <IonButton
-                        expand="block"
-                        color="primary"
-                        onClick={() => handleTakePicture(sub)}
-                      >
-                        📸 Take Picture
-                      </IonButton>
-                    </div>
-                  </div>
+                  {/* Tree Type */}
+                  <p style={{ fontSize: "16px", fontWeight: "500", fontStyle: "italic" }}>
+                    {sub.tree_type || "Planted a new tree"}
+                  </p>
 
-                  {/* Right: EXIF Metadata */}
-                  <div
-                    style={{
-                      border: "1px solid #e0e0e0",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      background: "#fff",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
-                      EXIF Metadata
-                    </h4>
-                    <table style={{ width: "100%", fontSize: "14px" }}>
-                      <tbody>
-                        <tr>
-                          <td>
-                            <b>Date taken</b>
-                          </td>
-                          <td>
-                            {sub.exif_metadata?.DateTimeOriginal ||
-                              sub.date_planted}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Device</b>
-                          </td>
-                          <td>
-                            {sub.exif_metadata?.Make || "Unknown"}{" "}
-                            {sub.exif_metadata?.Model || ""}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>GPS (Raw)</b>
-                          </td>
-                          <td>
-                            {sub.latitude}, {sub.longitude}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Orientation</b>
-                          </td>
-                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Exif version</b>
-                          </td>
-                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Latitude (DMS)</b>
-                          </td>
-                          <td>{toDMS(sub.latitude, "lat")}</td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <b>Longitude (DMS)</b>
-                          </td>
-                          <td>{toDMS(sub.longitude, "lon")}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  {/* Coordinates */}
+                  <table style={{ width: "100%", fontSize: "14px" }}>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <b>Latitude (DMS)</b>
+                        </td>
+                        <td>{toDMS(sub.latitude, "lat")}</td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <b>Longitude (DMS)</b>
+                        </td>
+                        <td>{toDMS(sub.longitude, "lon")}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Buttons */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+                    <IonButton expand="block" color="success">
+                      👣 Visits: {sub.visits || 0}
+                    </IonButton>
+                    <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>
+                      📍 Location
+                    </IonButton>
+                    <IonButton expand="block" color="warning" onClick={() => handleRadar(sub)}>
+                      🧭 Radar
+                    </IonButton>
+                    <IonButton expand="block" color="primary" onClick={() => handleTakePicture(sub)}>
+                      📸 Take Picture
+                    </IonButton>
                   </div>
                 </div>
               </IonCardContent>
