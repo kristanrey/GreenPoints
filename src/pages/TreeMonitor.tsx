@@ -30,7 +30,7 @@ interface Submission {
   longitude: number;
   status: string;
   exif_metadata?: any;
-  visits?: number;
+  visits?: number; // total visits from tree_monitoring
 }
 
 const MySubmissions: React.FC = () => {
@@ -45,9 +45,7 @@ const MySubmissions: React.FC = () => {
   useEffect(() => {
     const checkUserAccess = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setToastMsg("⚠️ Please login first");
           setShowToast(true);
@@ -62,10 +60,7 @@ const MySubmissions: React.FC = () => {
           .maybeSingle();
 
         setUserName(
-          profile?.full_name ||
-            user.user_metadata?.full_name ||
-            user.email ||
-            "User"
+          profile?.full_name || user.user_metadata?.full_name || user.email || "User"
         );
 
         fetchApprovedSubmissions();
@@ -80,7 +75,6 @@ const MySubmissions: React.FC = () => {
     checkUserAccess();
   }, [history]);
 
-  // Refresh submissions automatically if returning from TakePicture page
   useEffect(() => {
     if (location.state?.fromTakePicture) {
       fetchApprovedSubmissions();
@@ -90,28 +84,38 @@ const MySubmissions: React.FC = () => {
   const fetchApprovedSubmissions = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1️⃣ Fetch approved tree submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
         .from("tree_submissions")
         .select("*")
         .ilike("status", "approved")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (submissionsError) throw submissionsError;
 
       const parsedData =
-        data?.map((sub: any) => {
-          const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
-          const finalLat = exif?.latitude ?? sub.latitude;
-          const finalLng = exif?.longitude ?? sub.longitude;
+        await Promise.all(
+          (submissionsData || []).map(async (sub: any) => {
+            // Parse EXIF metadata
+            const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
+            const finalLat = exif?.latitude ?? sub.latitude;
+            const finalLng = exif?.longitude ?? sub.longitude;
 
-          return {
-            ...sub,
-            exif_metadata: exif,
-            latitude: finalLat,
-            longitude: finalLng,
-            visits: sub.visits || 0,
-          };
-        }) || [];
+            // 2️⃣ Fetch total visits from tree_monitoring table
+            const { count } = await supabase
+              .from("tree_monitoring")
+              .select("*", { count: "exact", head: true })
+              .eq("submission_id", sub.submission_id);
+
+            return {
+              ...sub,
+              exif_metadata: exif,
+              latitude: finalLat,
+              longitude: finalLng,
+              visits: count || 0,
+            };
+          })
+        );
 
       setSubmissions(parsedData);
     } catch (err: any) {
@@ -130,12 +134,7 @@ const MySubmissions: React.FC = () => {
     return `${d}° ${m}' ${s}" ${dir}`;
   };
 
-  const getDistanceMeters = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) => {
+  const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371000;
     const toRad = (value: number) => (value * Math.PI) / 180;
 
@@ -154,25 +153,33 @@ const MySubmissions: React.FC = () => {
 
   const incrementVisits = async (submission: Submission) => {
     try {
-      if ((submission.visits || 0) >= 5) return; // stop at 5 visits
+      if ((submission.visits || 0) >= 5) return;
 
-      const newVisits = (submission.visits || 0) + 1;
-      const { error } = await supabase
-        .from("tree_submissions")
-        .update({ visits: newVisits })
-        .eq("submission_id", submission.submission_id);
+      const { error } = await supabase.from("tree_monitoring").insert([
+        {
+          submission_id: submission.submission_id,
+          user_id: submission.user_id,
+          latitude: submission.latitude,
+          longitude: submission.longitude,
+          image_url: "", // optional, leave blank for visit increment
+          monitored_at: new Date().toISOString(),
+          condition: "Growing",
+          notes: "",
+          visits: (submission.visits || 0) + 1,
+        },
+      ]);
 
       if (error) throw error;
 
       setSubmissions((prev) =>
         prev.map((s) =>
           s.submission_id === submission.submission_id
-            ? { ...s, visits: newVisits }
+            ? { ...s, visits: (s.visits || 0) + 1 }
             : s
         )
       );
     } catch (err) {
-      console.error("Error updating visits:", err);
+      console.error("Error incrementing visits:", err);
     }
   };
 
@@ -228,50 +235,7 @@ const MySubmissions: React.FC = () => {
     history.push(`/radar/${submission.submission_id}`);
   };
 
-  // ✅ Safe handleSubmitMonitoring
-  const handleSubmitMonitoring = async (submission: Submission, imageUrl: string) => {
-    if (!imageUrl) {
-      setToastMsg("⚠️ Image URL is required to submit monitoring");
-      setShowToast(true);
-      return;
-    }
-
-    try {
-      // Allowed status values (match PostgreSQL check constraint)
-      const allowedStatuses = ["pending", "approved", "rejected"];
-      const statusToUse = allowedStatuses[0]; // use 'pending' by default
-
-      const { error: monitorError } = await supabase.from("tree_monitoring").insert([
-        {
-          submission_id: submission.submission_id,
-          user_id: submission.user_id,
-          latitude: submission.latitude,
-          longitude: submission.longitude,
-          image_url: imageUrl,
-          monitored_at: new Date().toISOString(),
-          status: statusToUse,
-          notes: "",
-        },
-      ]);
-
-      if (monitorError) throw monitorError;
-
-      // Increment visits (max 5)
-      if ((submission.visits || 0) < 5) {
-        incrementVisits(submission);
-        setToastMsg(`✅ Monitoring submitted! Visits: ${(submission.visits || 0) + 1}/5`);
-      } else {
-        setToastMsg("⚠️ This tree has reached maximum visits (5)");
-      }
-      setShowToast(true);
-    } catch (err: any) {
-      setToastMsg(`Error submitting monitoring: ${err.message}`);
-      setShowToast(true);
-    }
-  };
-
   const handleTakePicture = (submission: Submission) => {
-    // Navigate to TakePicture page
     history.push(`/take-picture/${submission.submission_id}`);
   };
 
@@ -313,7 +277,6 @@ const MySubmissions: React.FC = () => {
                     gap: "12px",
                   }}
                 >
-                  {/* Image */}
                   {sub.image_url ? (
                     <IonImg
                       src={sub.image_url}
@@ -331,12 +294,10 @@ const MySubmissions: React.FC = () => {
                     <p>📷 Image not available</p>
                   )}
 
-                  {/* Tree Type */}
                   <p style={{ fontSize: "16px", fontWeight: "500", fontStyle: "italic" }}>
                     {sub.tree_type || "Planted a new tree"}
                   </p>
 
-                  {/* Coordinates */}
                   <table style={{ width: "100%", fontSize: "14px" }}>
                     <tbody>
                       <tr>
@@ -354,7 +315,6 @@ const MySubmissions: React.FC = () => {
                     </tbody>
                   </table>
 
-                  {/* Buttons */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                     <IonButton expand="block" color="success">
                       👣 Visits: {sub.visits || 0}/5
