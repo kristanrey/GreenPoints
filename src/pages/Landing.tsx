@@ -13,7 +13,7 @@ const Landing: React.FC = () => {
 
   const handleStart = () => {
     // 🎵 Create and play audio after user interaction
-    const audio = new Audio("public/music/Lil Dicky - Earth (Official Music Video).mp3");
+    const audio = new Audio("/music/Lil Dicky - Earth (Official Music Video).mp3");
     audio.loop = true;
     audio.play().catch((err) => {
       console.log("Autoplay blocked or error:", err);
