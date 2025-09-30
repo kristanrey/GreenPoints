@@ -38,7 +38,7 @@ const RadarPage: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const beepInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Fetch tree submission
+  // ✅ Fetch tree submission from DB
   useEffect(() => {
     const fetchSubmission = async () => {
       const { data, error } = await supabase
@@ -82,20 +82,9 @@ const RadarPage: React.FC = () => {
 
         // Attach user info
         Radar.setUserId(user.id);
-        Radar.setMetadata({
-          email: user.email ?? "unknown",
-        });
+        Radar.setMetadata({ email: user.email ?? "unknown" });
 
         console.log("✅ Radar initialized for:", user.email);
-
-        // Run a one-time track to send location to Radar
-        Radar.trackOnce()
-          .then((result) => {
-            console.log("📡 Radar event:", result);
-          })
-          .catch((err) => {
-            console.warn("⚠️ Radar tracking error:", err);
-          });
       } catch (err) {
         console.error("⚠️ Radar init failed:", err);
       }
@@ -140,10 +129,19 @@ const RadarPage: React.FC = () => {
         );
         setDistance(dist);
         setBearing(brg);
+
+        // ✅ Push live updates to Radar
+        Radar.trackOnce({ latitude: lat, longitude: lng })
+          .then((res) => {
+            console.log("📡 Radar update:", res);
+          })
+          .catch((err) => {
+            console.warn("⚠️ Radar tracking error:", err);
+          });
       },
       (err) => {
         setToastMsg("⚠️ Location error");
-        console.error(err);
+        console.error("❌ Geolocation error:", err);
       },
       { enableHighAccuracy: true, maximumAge: 500, timeout: 5000 }
     );
@@ -163,7 +161,7 @@ const RadarPage: React.FC = () => {
       window.removeEventListener("deviceorientation", handleOrientation);
   }, []);
 
-  // ✅ Beeping logic (plays at 7 meters)
+  // ✅ Beeping logic (plays when within 7m of tree)
   useEffect(() => {
     if (distance > 0 && distance <= 7) {
       if (!beepInterval.current) {
