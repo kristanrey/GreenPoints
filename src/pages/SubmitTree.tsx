@@ -11,11 +11,13 @@ import {
   IonIcon,
   IonItem,
   IonLabel,
-  IonInput,
+  IonSelect,
+  IonSelectOption,
   IonCard,
   IonCardContent,
   IonCardHeader,
   IonCardTitle,
+  IonInput,
 } from "@ionic/react";
 import { Camera, CameraSource, CameraDirection, CameraResultType } from "@capacitor/camera";
 import { Geolocation } from "@capacitor/geolocation";
@@ -35,15 +37,41 @@ const SubmitNewTree: React.FC = () => {
   const [useFrontCamera, setUseFrontCamera] = useState<boolean>(false);
 
   const [datePlanted, setDatePlanted] = useState<string>("");
-  const [treeName, setTreeName] = useState<string>("");
-  const [locationDesc, setLocationDesc] = useState<string>("");
+  const [selectedTree, setSelectedTree] = useState<string | null>(null);
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string | null>(null);
+  const [selectedBarangay, setSelectedBarangay] = useState<string | null>(null);
   const [exifData, setExifData] = useState<any>(null);
+
+  const [treeOptions, setTreeOptions] = useState<{ tree_id: number; tree_name: string }[]>([]);
+  const [locationOptions, setLocationOptions] = useState<
+    { location_id: number; municipality: string; barangay: string }[]
+  >([]);
 
   useEffect(() => {
     setIsNative(Capacitor.isNativePlatform());
+    fetchTrees();
+    fetchLocations();
   }, []);
 
-  // ✅ fallback geolocation (only if EXIF missing)
+  // Fetch trees from DB
+  const fetchTrees = async () => {
+    const { data, error } = await supabase.from("trees").select("tree_id, tree_name").order("tree_name");
+    if (error) console.error("Failed to fetch trees:", error);
+    else setTreeOptions(data || []);
+  };
+
+  // Fetch locations from DB
+  const fetchLocations = async () => {
+    const { data, error } = await supabase
+      .from("locations")
+      .select("location_id, municipality, barangay")
+      .order("municipality")
+      .order("barangay");
+    if (error) console.error("Failed to fetch locations:", error);
+    else setLocationOptions(data || []);
+  };
+
+  // fallback geolocation (only if EXIF missing)
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
@@ -66,7 +94,7 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
-  // ✅ always prefer EXIF GPS
+  // always prefer EXIF GPS
   const extractExif = async (blob: Blob) => {
     try {
       const metadata = await exifr.parse(blob, { gps: true });
@@ -100,7 +128,6 @@ const SubmitNewTree: React.FC = () => {
       const blob = await fetch(path).then((r) => r.blob());
       await extractExif(blob);
 
-      // ⚠️ Do NOT overwrite coords here if EXIF already has GPS
       if (!coords) {
         const fallbackCoords = await getGeoCoords();
         if (fallbackCoords) setCoords(fallbackCoords);
@@ -114,7 +141,8 @@ const SubmitNewTree: React.FC = () => {
   const handleSubmit = async () => {
     try {
       if (!photoDataUrl) return show("Please take a photo first.");
-      if (!datePlanted || !treeName || !locationDesc) return show("Please fill all fields.");
+      if (!datePlanted || !selectedTree || !selectedMunicipality || !selectedBarangay)
+        return show("Please fill all fields.");
 
       let currentCoords = coords;
       if (!currentCoords) {
@@ -132,7 +160,6 @@ const SubmitNewTree: React.FC = () => {
 
       const blob = await fetch(photoDataUrl).then((r) => r.blob());
 
-      // ✅ get username first
       const { data: profileData } = await supabase
         .from("profiles")
         .select("username")
@@ -150,7 +177,7 @@ const SubmitNewTree: React.FC = () => {
       const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // ✅ Save EXIF + coords to DB
+      // Save EXIF + coords + dropdown selections to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -161,8 +188,9 @@ const SubmitNewTree: React.FC = () => {
           status: "pending",
           description: "Planted a new tree 🌱",
           date_planted: datePlanted,
-          tree_type: treeName,
-          location_description: locationDesc,
+          tree_type: selectedTree,
+          municipality: selectedMunicipality,
+          barangay: selectedBarangay,
           exif_metadata: exifData ? JSON.stringify(exifData) : null,
         },
       ]);
@@ -179,8 +207,9 @@ const SubmitNewTree: React.FC = () => {
       setPhotoDataUrl(null);
       setCoords(null);
       setDatePlanted("");
-      setTreeName("");
-      setLocationDesc("");
+      setSelectedTree(null);
+      setSelectedMunicipality(null);
+      setSelectedBarangay(null);
       setExifData(null);
     } catch (err: any) {
       show(`❌ ${err.message || "Submission failed"}`);
@@ -213,15 +242,53 @@ const SubmitNewTree: React.FC = () => {
 
             <IonItem>
               <IonLabel position="floating">Name of Tree</IonLabel>
-              <IonInput value={treeName} onIonChange={(e) => setTreeName(e.detail.value!)} />
+              <IonSelect
+                value={selectedTree}
+                placeholder="Select a tree"
+                onIonChange={(e) => setSelectedTree(e.detail.value)}
+              >
+                {treeOptions.map((t) => (
+                  <IonSelectOption key={t.tree_id} value={t.tree_name}>
+                    {t.tree_name}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
             </IonItem>
 
             <IonItem>
-              <IonLabel position="floating">Planted Where</IonLabel>
-              <IonInput
-                value={locationDesc}
-                onIonChange={(e) => setLocationDesc(e.detail.value!)}
-              />
+              <IonLabel position="floating">Municipality</IonLabel>
+              <IonSelect
+                value={selectedMunicipality}
+                placeholder="Select municipality"
+                onIonChange={(e) => {
+                  setSelectedMunicipality(e.detail.value);
+                  setSelectedBarangay(null); // reset barangay
+                }}
+              >
+                {[...new Set(locationOptions.map((loc) => loc.municipality))].map((mun) => (
+                  <IonSelectOption key={mun} value={mun}>
+                    {mun}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
+            </IonItem>
+
+            <IonItem>
+              <IonLabel position="floating">Barangay</IonLabel>
+              <IonSelect
+                value={selectedBarangay}
+                placeholder="Select barangay"
+                onIonChange={(e) => setSelectedBarangay(e.detail.value)}
+                disabled={!selectedMunicipality}
+              >
+                {locationOptions
+                  .filter((loc) => loc.municipality === selectedMunicipality)
+                  .map((loc) => (
+                    <IonSelectOption key={loc.location_id} value={loc.barangay}>
+                      {loc.barangay}
+                    </IonSelectOption>
+                  ))}
+              </IonSelect>
             </IonItem>
 
             {!photoDataUrl && (
