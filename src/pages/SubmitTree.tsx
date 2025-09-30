@@ -23,7 +23,6 @@ import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera, cameraReverse, images, checkmarkCircle } from "ionicons/icons";
 import exifr from "exifr";
-import * as piexif from "piexifjs"; // ✅ fixed import
 import "./SubmitNewTree.css";
 
 const SubmitNewTree: React.FC = () => {
@@ -34,6 +33,7 @@ const SubmitNewTree: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [isNative, setIsNative] = useState<boolean>(false);
   const [useFrontCamera, setUseFrontCamera] = useState<boolean>(false);
+
   const [datePlanted, setDatePlanted] = useState<string>("");
   const [treeName, setTreeName] = useState<string>("");
   const [locationDesc, setLocationDesc] = useState<string>("");
@@ -43,28 +43,19 @@ const SubmitNewTree: React.FC = () => {
     setIsNative(Capacitor.isNativePlatform());
   }, []);
 
-  const show = (msg: string) => {
-    setToastMsg(msg);
-    setShowToast(true);
-  };
-
-  // ✅ Fallback geolocation
+  // ✅ fallback geolocation (only if EXIF missing)
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
       if (isNative) {
-        position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        });
+        position = await Geolocation.getCurrentPosition();
       } else {
         position = await new Promise<GeolocationPosition>((resolve, reject) => {
           if (!("geolocation" in navigator)) reject("Geolocation not supported");
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
             timeout: 15000,
-            maximumAge: 0,
+            maximumAge: 10000,
           });
         });
       }
@@ -75,35 +66,16 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
-  const degToDmsRational = (deg: number) => {
-    const d = Math.floor(deg);
-    const m = Math.floor((deg - d) * 60);
-    const s = Math.round(((deg - d) * 60 - m) * 60 * 100);
-    return [
-      [d, 1],
-      [m, 1],
-      [s, 100],
-    ];
-  };
-
-  // ✅ TypeScript-safe GPS injection
-  const injectGpsExif = (dataUrl: string, lat: number, lng: number) => {
-    const exifObj: any = piexif.load(dataUrl); // cast to any for TS
-    if (!exifObj["GPS"]) exifObj["GPS"] = {}; // ensure GPS exists
-
-    exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef] = lat >= 0 ? "N" : "S";
-    exifObj["GPS"][piexif.GPSIFD.GPSLatitude] = degToDmsRational(Math.abs(lat));
-    exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = lng >= 0 ? "E" : "W";
-    exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = degToDmsRational(Math.abs(lng));
-
-    const exifBytes = piexif.dump(exifObj);
-    return piexif.insert(exifBytes, dataUrl);
-  };
-
+  // ✅ always prefer EXIF GPS
   const extractExif = async (blob: Blob) => {
     try {
       const metadata = await exifr.parse(blob, { gps: true });
-      if (metadata) setExifData(metadata);
+      if (metadata) {
+        setExifData(metadata);
+        if (metadata.latitude && metadata.longitude) {
+          setCoords({ lat: metadata.latitude, lng: metadata.longitude });
+        }
+      }
     } catch (err) {
       console.warn("No EXIF metadata found:", err);
     }
@@ -113,26 +85,26 @@ const SubmitNewTree: React.FC = () => {
     try {
       const image = await Camera.getPhoto({
         source,
-        resultType: CameraResultType.DataUrl,
+        resultType: CameraResultType.Uri,
         quality: 85,
         correctOrientation: true,
         direction: useFrontCamera ? CameraDirection.Front : CameraDirection.Rear,
       });
 
-      if (!image.dataUrl) return show("Failed to capture photo.");
-      let photoUrl = image.dataUrl;
+      const path = image.path || image.webPath;
+      if (!path) return show("Failed to capture photo.");
 
-      const highAccCoords = await getGeoCoords();
-      if (!highAccCoords) return show("Unable to get GPS coordinates.");
-
-      // Inject high-accuracy GPS into EXIF
-      photoUrl = injectGpsExif(photoUrl, highAccCoords.lat, highAccCoords.lng);
-
+      const photoUrl = Capacitor.convertFileSrc(path);
       setPhotoDataUrl(photoUrl);
-      setCoords(highAccCoords);
 
-      const exifBlob = await (await fetch(photoUrl)).blob();
-      await extractExif(exifBlob);
+      const blob = await fetch(path).then((r) => r.blob());
+      await extractExif(blob);
+
+      // ⚠️ Do NOT overwrite coords here if EXIF already has GPS
+      if (!coords) {
+        const fallbackCoords = await getGeoCoords();
+        if (fallbackCoords) setCoords(fallbackCoords);
+      }
     } catch (err) {
       console.error(err);
       show("Camera canceled or unavailable.");
@@ -158,8 +130,9 @@ const SubmitNewTree: React.FC = () => {
       } = await supabase.auth.getUser();
       if (userErr || !user) throw new Error("You must be logged in");
 
-      const blob = await (await fetch(photoDataUrl!)).blob();
+      const blob = await fetch(photoDataUrl).then((r) => r.blob());
 
+      // ✅ get username first
       const { data: profileData } = await supabase
         .from("profiles")
         .select("username")
@@ -177,6 +150,7 @@ const SubmitNewTree: React.FC = () => {
       const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
+      // ✅ Save EXIF + coords to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -194,6 +168,7 @@ const SubmitNewTree: React.FC = () => {
       ]);
       if (dbErr) throw dbErr;
 
+      // Update user’s total trees
       const { count } = await supabase
         .from("tree_submissions")
         .select("id", { count: "exact", head: true })
@@ -212,6 +187,11 @@ const SubmitNewTree: React.FC = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const show = (msg: string) => {
+    setToastMsg(msg);
+    setShowToast(true);
   };
 
   return (
