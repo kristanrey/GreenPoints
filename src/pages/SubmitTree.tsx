@@ -188,20 +188,13 @@ const SubmitNewTree: React.FC = () => {
           status: "pending",
           description: "Planted a new tree 🌱",
           date_planted: datePlanted,
-          tree_type: selectedTree,
+          tree_name: selectedTree, // <-- INSERT into tree_name, removed tree_type
           municipality: selectedMunicipality,
           barangay: selectedBarangay,
           exif_metadata: exifData ? JSON.stringify(exifData) : null,
         },
       ]);
       if (dbErr) throw dbErr;
-
-      // Update user’s total trees
-      const { count } = await supabase
-        .from("tree_submissions")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      await supabase.from("users").update({ treesPlanted: count }).eq("id", user.id);
 
       show("✅ Tree submitted successfully! Awaiting validation.");
       setPhotoDataUrl(null);

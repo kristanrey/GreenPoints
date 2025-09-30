@@ -1,3 +1,4 @@
+
 // src/pages/RadarPage.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -32,6 +33,7 @@ const RadarPage: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sweepAngle = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const beepInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -54,7 +56,11 @@ const RadarPage: React.FC = () => {
   }, [id]);
 
   // Smooth location (low-pass filter)
-  const smoothUpdate = (prev: number | null, next: number, alpha = 0.2) => {
+  const smoothUpdate = (
+    prev: number | null,
+    next: number,
+    alpha: number = 0.2
+  ) => {
     if (prev === null) return next;
     return prev + alpha * (next - prev);
   };
@@ -99,21 +105,24 @@ const RadarPage: React.FC = () => {
   // Device orientation (for compass heading)
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.alpha !== null) setHeading(e.alpha);
+      if (e.alpha !== null) {
+        setHeading(e.alpha);
+      }
     };
     window.addEventListener("deviceorientation", handleOrientation, true);
     return () =>
       window.removeEventListener("deviceorientation", handleOrientation);
   }, []);
 
-  // ✅ Beeping logic
+  // ✅ Beeping logic (plays at 7 meters)
   useEffect(() => {
-    if (distance > 0 && distance <= 7) {
+    if (distance > 0 && distance <= 7) { // 🔥 changed from 5m to 7m
       if (!beepInterval.current) {
         setToastMsg("🎵 You're close to the tree!");
+        // Start beeping/music every 1 second
         beepInterval.current = setInterval(() => {
           if (audioRef.current) {
-            audioRef.current.currentTime = 0;
+            audioRef.current.currentTime = 0; // rewind to start
             audioRef.current
               .play()
               .catch((err) => console.warn("Audio blocked:", err));
@@ -121,6 +130,7 @@ const RadarPage: React.FC = () => {
         }, 1000);
       }
     } else {
+      // Stop beeping/music if outside 7m
       if (beepInterval.current) {
         clearInterval(beepInterval.current);
         beepInterval.current = null;
@@ -135,7 +145,7 @@ const RadarPage: React.FC = () => {
     };
   }, [distance]);
 
-  // Radar drawing loop (sweep removed)
+  // Radar drawing loop
   useEffect(() => {
     if (!canvasRef.current || !submission || !userLat || !userLng) return;
     const canvas = canvasRef.current;
@@ -162,6 +172,16 @@ const RadarPage: React.FC = () => {
         ctx.stroke();
       }
 
+      // Sweep line
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      const sweepX = centerX + radius * Math.cos(sweepAngle.current);
+      const sweepY = centerY + radius * Math.sin(sweepAngle.current);
+      ctx.lineTo(sweepX, sweepY);
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
       // 🔴 Arrow: user facing direction
       ctx.save();
       ctx.translate(centerX, centerY);
@@ -187,13 +207,17 @@ const RadarPage: React.FC = () => {
       ctx.fillStyle = "lime";
       ctx.fill();
 
+      // Rotate sweep
+      sweepAngle.current += 0.05;
+      if (sweepAngle.current > Math.PI * 2) sweepAngle.current = 0;
+
       requestAnimationFrame(draw);
     };
 
     draw();
   }, [bearing, distance, heading, submission, userLat, userLng]);
 
-  // Distance calculation
+  // Distance
   const getDistanceMeters = (
     lat1: number,
     lon1: number,
@@ -212,7 +236,7 @@ const RadarPage: React.FC = () => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Bearing calculation
+  // Bearing
   const getBearing = (
     lat1: number,
     lon1: number,
@@ -238,6 +262,7 @@ const RadarPage: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding" style={{ textAlign: "center" }}>
+        {/* Hidden audio element */}
         <audio ref={audioRef} src="/Yamete Kudasai.mp3" preload="auto" />
 
         {!submission || !userLat || !userLng ? (

@@ -24,6 +24,9 @@ interface Submission {
   user_id: string;
   image_url: string;
   tree_type: string;
+  tree_name?: string;
+  barangay?: string;
+  municipality?: string;
   date_planted: string;
   location_description: string;
   latitude: number;
@@ -84,7 +87,6 @@ const MySubmissions: React.FC = () => {
   const fetchApprovedSubmissions = async () => {
     setLoading(true);
     try {
-      // 1️⃣ Fetch approved tree submissions
       const { data: submissionsData, error: submissionsError } = await supabase
         .from("tree_submissions")
         .select("*")
@@ -93,29 +95,29 @@ const MySubmissions: React.FC = () => {
 
       if (submissionsError) throw submissionsError;
 
-      const parsedData =
-        await Promise.all(
-          (submissionsData || []).map(async (sub: any) => {
-            // Parse EXIF metadata
-            const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
-            const finalLat = exif?.latitude ?? sub.latitude;
-            const finalLng = exif?.longitude ?? sub.longitude;
+      const parsedData = await Promise.all(
+        (submissionsData || []).map(async (sub: any) => {
+          const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
+          const finalLat = exif?.latitude ?? sub.latitude;
+          const finalLng = exif?.longitude ?? sub.longitude;
 
-            // 2️⃣ Fetch total visits from tree_monitoring table
-            const { count } = await supabase
-              .from("tree_monitoring")
-              .select("*", { count: "exact", head: true })
-              .eq("submission_id", sub.submission_id);
+          const { count } = await supabase
+            .from("tree_monitoring")
+            .select("*", { count: "exact", head: true })
+            .eq("submission_id", sub.submission_id);
 
-            return {
-              ...sub,
-              exif_metadata: exif,
-              latitude: finalLat,
-              longitude: finalLng,
-              visits: count || 0,
-            };
-          })
-        );
+          return {
+            ...sub,
+            tree_name: exif?.tree_name || sub.tree_name || "Unknown Tree",
+            barangay: exif?.barangay || sub.barangay || "Unknown Barangay",
+            municipality: exif?.municipality || sub.municipality || "Unknown Municipality",
+            exif_metadata: exif,
+            latitude: finalLat,
+            longitude: finalLng,
+            visits: count || 0,
+          };
+        })
+      );
 
       setSubmissions(parsedData);
     } catch (err: any) {
@@ -161,7 +163,7 @@ const MySubmissions: React.FC = () => {
           user_id: submission.user_id,
           latitude: submission.latitude,
           longitude: submission.longitude,
-          image_url: "", // optional, leave blank for visit increment
+          image_url: "",
           monitored_at: new Date().toISOString(),
           condition: "Growing",
           notes: "",
@@ -298,18 +300,26 @@ const MySubmissions: React.FC = () => {
                     {sub.tree_type || "Planted a new tree"}
                   </p>
 
-                  <table style={{ width: "100%", fontSize: "14px" }}>
+                  <table style={{ width: "100%", fontSize: "14px", marginBottom: "12px" }}>
                     <tbody>
                       <tr>
-                        <td>
-                          <b>Latitude (DMS)</b>
-                        </td>
+                        <td><b>Tree Name</b></td>
+                        <td>{sub.tree_name}</td>
+                      </tr>
+                      <tr>
+                        <td><b>Barangay</b></td>
+                        <td>{sub.barangay}</td>
+                      </tr>
+                      <tr>
+                        <td><b>Municipality</b></td>
+                        <td>{sub.municipality}</td>
+                      </tr>
+                      <tr>
+                        <td><b>Latitude (DMS)</b></td>
                         <td>{toDMS(sub.latitude, "lat")}</td>
                       </tr>
                       <tr>
-                        <td>
-                          <b>Longitude (DMS)</b>
-                        </td>
+                        <td><b>Longitude (DMS)</b></td>
                         <td>{toDMS(sub.longitude, "lon")}</td>
                       </tr>
                     </tbody>

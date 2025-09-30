@@ -23,7 +23,9 @@ interface Submission {
   submission_id: number;
   user_id: string;
   image_url: string;
-  tree_type: string;
+  tree_name: string;
+  municipality?: string;
+  barangay?: string;
   date_planted: string;
   location_description: string;
   latitude: number;
@@ -87,23 +89,23 @@ const ValidatePage: React.FC = () => {
 
       if (error) throw error;
 
-      // Parse EXIF JSON string
-      const parsedData = data?.map((sub: any) => {
+      const submissionsWithDetails = data.map((sub: any) => {
         const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
-
-        // ✅ Prefer EXIF GPS if available
         const finalLat = exif?.latitude ?? sub.latitude;
         const finalLng = exif?.longitude ?? sub.longitude;
 
         return {
           ...sub,
-          exif_metadata: exif,
+          tree_name: sub.tree_name || "Unknown",
+          municipality: sub.municipality || "N/A",
+          barangay: sub.barangay || "N/A",
           latitude: finalLat,
           longitude: finalLng,
+          exif_metadata: exif,
         };
       });
 
-      setSubmissions(parsedData);
+      setSubmissions(submissionsWithDetails);
     } catch (err: any) {
       setToastMsg(`Error fetching submissions: ${err.message}`);
       setShowToast(true);
@@ -125,7 +127,7 @@ const ValidatePage: React.FC = () => {
       if (status === "approved" && updated?.user_id) {
         const { data: profile, error: fetchError } = await supabase
           .from("profiles")
-          .select("greenpoints")
+          .select("greenpoints, trees_planted")
           .eq("user_id", updated.user_id)
           .single();
         if (fetchError) throw fetchError;
@@ -201,7 +203,7 @@ const ValidatePage: React.FC = () => {
                     alignItems: "flex-start",
                   }}
                 >
-                  {/* Left: Tree photo + buttons */}
+                  {/* Left: Image only */}
                   <div style={{ textAlign: "center" }}>
                     {sub.image_url ? (
                       <IonImg
@@ -220,10 +222,6 @@ const ValidatePage: React.FC = () => {
                     ) : (
                       <p>📷 Image not available</p>
                     )}
-
-                    <p style={{ marginTop: "8px", fontStyle: "italic" }}>
-                      {sub.tree_type || "Planted a new tree"}
-                    </p>
 
                     {sub.status === "pending" && (
                       <div
@@ -252,7 +250,7 @@ const ValidatePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Right: EXIF Metadata */}
+                  {/* Right: Tree Info + EXIF Metadata */}
                   <div
                     style={{
                       border: "1px solid #e0e0e0",
@@ -262,39 +260,50 @@ const ValidatePage: React.FC = () => {
                       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>EXIF Metadata</h4>
-                    <table style={{ width: "100%", fontSize: "14px" }}>
+                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>Tree Info & EXIF Metadata</h4>
+                    <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse" }}>
                       <tbody>
                         <tr>
-                          <td><b>Date taken</b></td>
-                          <td>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Tree Name</td>
+                          <td style={{ padding: "4px" }}>{sub.tree_name}</td>
                         </tr>
                         <tr>
-                          <td><b>Device</b></td>
-                          <td>
-                            {sub.exif_metadata?.Make || "Unknown"}{" "}
-                            {sub.exif_metadata?.Model || ""}
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Municipality</td>
+                          <td style={{ padding: "4px" }}>{sub.municipality}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Barangay</td>
+                          <td style={{ padding: "4px" }}>{sub.barangay}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Date taken</td>
+                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Device</td>
+                          <td style={{ padding: "4px" }}>
+                            {sub.exif_metadata?.Make || "Unknown"} {sub.exif_metadata?.Model || ""}
                           </td>
                         </tr>
                         <tr>
-                          <td><b>GPS (Raw)</b></td>
-                          <td>{sub.latitude}, {sub.longitude}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Raw)</td>
+                          <td style={{ padding: "4px" }}>{sub.latitude}, {sub.longitude}</td>
                         </tr>
                         <tr>
-                          <td><b>Orientation</b></td>
-                          <td>{sub.exif_metadata?.Orientation || "N/A"}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Orientation</td>
+                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.Orientation || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td><b>Exif version</b></td>
-                          <td>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Exif version</td>
+                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
                         </tr>
                         <tr>
-                          <td><b>Latitude (DMS)</b></td>
-                          <td>{toDMS(sub.latitude, "lat")}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Latitude (DMS)</td>
+                          <td style={{ padding: "4px" }}>{toDMS(sub.latitude, "lat")}</td>
                         </tr>
                         <tr>
-                          <td><b>Longitude (DMS)</b></td>
-                          <td>{toDMS(sub.longitude, "lon")}</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>Longitude (DMS)</td>
+                          <td style={{ padding: "4px" }}>{toDMS(sub.longitude, "lon")}</td>
                         </tr>
                       </tbody>
                     </table>
