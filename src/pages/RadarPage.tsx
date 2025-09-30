@@ -12,6 +12,7 @@ import {
 } from "@ionic/react";
 import { useParams, useHistory } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
+import Radar from "radar-sdk-js";
 
 interface Submission {
   submission_id: number;
@@ -30,13 +31,14 @@ const RadarPage: React.FC = () => {
   const [distance, setDistance] = useState<number>(0);
   const [heading, setHeading] = useState<number>(0);
   const [toastMsg, setToastMsg] = useState("");
+  const [user, setUser] = useState<any>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sweepAngle = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const beepInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch tree
+  // ✅ Fetch tree submission
   useEffect(() => {
     const fetchSubmission = async () => {
       const { data, error } = await supabase
@@ -46,6 +48,7 @@ const RadarPage: React.FC = () => {
         .maybeSingle();
 
       if (error) {
+        console.error("⚠️ Failed to load tree:", error.message);
         setToastMsg("⚠️ Failed to load tree");
         return;
       }
@@ -54,7 +57,54 @@ const RadarPage: React.FC = () => {
     fetchSubmission();
   }, [id]);
 
-  // Smooth location (low-pass filter)
+  // ✅ Fetch Supabase user & initialize Radar
+  useEffect(() => {
+    const initRadar = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error("⚠️ Supabase error:", error.message);
+        return;
+      }
+      if (!user) {
+        history.push("/login");
+        return;
+      }
+
+      setUser(user);
+
+      try {
+        // Initialize Radar with publishable key
+        Radar.initialize("prj_test_pk_f8f29ac369c143d142cd2a5db92d7c59dde34027");
+
+        // Attach user info
+        Radar.setUserId(user.id);
+        Radar.setMetadata({
+          email: user.email ?? "unknown",
+        });
+
+        console.log("✅ Radar initialized for:", user.email);
+
+        // Run a one-time track to send location to Radar
+        Radar.trackOnce()
+          .then((result) => {
+            console.log("📡 Radar event:", result);
+          })
+          .catch((err) => {
+            console.warn("⚠️ Radar tracking error:", err);
+          });
+      } catch (err) {
+        console.error("⚠️ Radar init failed:", err);
+      }
+    };
+
+    initRadar();
+  }, [history]);
+
+  // ✅ Smooth update helper
   const smoothUpdate = (
     prev: number | null,
     next: number,
@@ -64,7 +114,7 @@ const RadarPage: React.FC = () => {
     return prev + alpha * (next - prev);
   };
 
-  // Track user position
+  // ✅ Track user position & compute distance/bearing
   useEffect(() => {
     if (!submission) return;
 
@@ -101,7 +151,7 @@ const RadarPage: React.FC = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [submission]);
 
-  // Device orientation (for compass heading)
+  // ✅ Device orientation for compass heading
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       if (e.alpha !== null) {
@@ -115,13 +165,12 @@ const RadarPage: React.FC = () => {
 
   // ✅ Beeping logic (plays at 7 meters)
   useEffect(() => {
-    if (distance > 0 && distance <= 7) { // 🔥 changed from 5m to 7m
+    if (distance > 0 && distance <= 7) {
       if (!beepInterval.current) {
         setToastMsg("🎵 You're close to the tree!");
-        // Start beeping/music every 1 second
         beepInterval.current = setInterval(() => {
           if (audioRef.current) {
-            audioRef.current.currentTime = 0; // rewind to start
+            audioRef.current.currentTime = 0;
             audioRef.current
               .play()
               .catch((err) => console.warn("Audio blocked:", err));
@@ -129,7 +178,6 @@ const RadarPage: React.FC = () => {
         }, 1000);
       }
     } else {
-      // Stop beeping/music if outside 7m
       if (beepInterval.current) {
         clearInterval(beepInterval.current);
         beepInterval.current = null;
@@ -144,7 +192,7 @@ const RadarPage: React.FC = () => {
     };
   }, [distance]);
 
-  // Radar drawing loop
+  // ✅ Radar-style drawing loop
   useEffect(() => {
     if (!canvasRef.current || !submission || !userLat || !userLng) return;
     const canvas = canvasRef.current;
@@ -158,11 +206,9 @@ const RadarPage: React.FC = () => {
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Grid circles
       ctx.strokeStyle = "rgba(0,255,0,0.3)";
       ctx.lineWidth = 1;
       for (let r = radius / 4; r <= radius; r += radius / 4) {
@@ -171,7 +217,6 @@ const RadarPage: React.FC = () => {
         ctx.stroke();
       }
 
-      // Sweep line
       ctx.beginPath();
       ctx.moveTo(centerX, centerY);
       const sweepX = centerX + radius * Math.cos(sweepAngle.current);
@@ -181,7 +226,6 @@ const RadarPage: React.FC = () => {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 🔴 Arrow: user facing direction
       ctx.save();
       ctx.translate(centerX, centerY);
       const relativeBearing = ((bearing - heading) * Math.PI) / 180;
@@ -195,9 +239,8 @@ const RadarPage: React.FC = () => {
       ctx.fill();
       ctx.restore();
 
-      // 🟢 Tree dot
       const brgRad = ((bearing - heading) * Math.PI) / 180;
-      const maxRange = 200; // 200m = edge of radar
+      const maxRange = 200;
       const distNorm = Math.min(distance / maxRange, 1) * radius;
       const dotX = centerX + distNorm * Math.cos(brgRad);
       const dotY = centerY + distNorm * Math.sin(brgRad);
@@ -206,7 +249,6 @@ const RadarPage: React.FC = () => {
       ctx.fillStyle = "lime";
       ctx.fill();
 
-      // Rotate sweep
       sweepAngle.current += 0.05;
       if (sweepAngle.current > Math.PI * 2) sweepAngle.current = 0;
 
@@ -216,7 +258,7 @@ const RadarPage: React.FC = () => {
     draw();
   }, [bearing, distance, heading, submission, userLat, userLng]);
 
-  // Distance
+  // ✅ Distance helper
   const getDistanceMeters = (
     lat1: number,
     lon1: number,
@@ -235,7 +277,7 @@ const RadarPage: React.FC = () => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Bearing
+  // ✅ Bearing helper
   const getBearing = (
     lat1: number,
     lon1: number,
@@ -248,7 +290,9 @@ const RadarPage: React.FC = () => {
     const y = Math.sin(dLon) * Math.cos(toRad(lat2));
     const x =
       Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      Math.sin(lat1 * Math.PI / 180) *
+        Math.cos(toRad(lat2)) *
+        Math.cos(dLon);
     return (toDeg(Math.atan2(y, x)) + 360) % 360;
   };
 
@@ -261,7 +305,6 @@ const RadarPage: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding" style={{ textAlign: "center" }}>
-        {/* Hidden audio element */}
         <audio ref={audioRef} src="/Yamete Kudasai.mp3" preload="auto" />
 
         {!submission || !userLat || !userLng ? (
