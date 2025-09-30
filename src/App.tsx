@@ -58,6 +58,7 @@ import TakePicture from "./pages/TakePicture";
 
 
 
+
 setupIonicReact();
 
 const App: React.FC = () => (
@@ -99,6 +100,7 @@ const App: React.FC = () => (
                     <Route path="/GreenPoints/treemonitor" component={TreeMonitor} exact />
                     <Route path="/radar/:id" component={RadarPage} exact />
                      <Route path="/take-picture/:submission_id" component={TakePicture} exact />
+                     
 
 
             
