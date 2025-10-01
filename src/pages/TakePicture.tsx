@@ -1,5 +1,5 @@
 // src/pages/TakePicture.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   IonPage,
   IonHeader,
@@ -11,6 +11,7 @@ import {
   IonSpinner,
   IonSelect,
   IonSelectOption,
+  IonText,
 } from "@ionic/react";
 import { useHistory, useParams } from "react-router";
 import { supabase } from "../utils/supabaseClient";
@@ -29,6 +30,7 @@ const TakePicture: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
 
   const takePhoto = async () => {
     try {
@@ -51,7 +53,6 @@ const TakePicture: React.FC = () => {
         longitude: position.coords.longitude,
       };
     } catch (err: any) {
-      console.error("Geolocation error:", err.message);
       setToastMsg("⚠️ Unable to get your location. Enable location services.");
       setShowToast(true);
       return { latitude: 0, longitude: 0 };
@@ -70,6 +71,49 @@ const TakePicture: React.FC = () => {
     return R * c;
   };
 
+  // Function to calculate remaining time
+  const calculateTimeRemaining = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: lastSubmission } = await supabase
+        .from("tree_monitoring")
+        .select("monitored_at")
+        .eq("submission_id", Number(submission_id))
+        .eq("user_id", user.id)
+        .order("monitored_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (lastSubmission) {
+        const lastTime = new Date(lastSubmission.monitored_at).getTime();
+        const now = new Date().getTime();
+        const diffMs = 24 * 60 * 60 * 1000 - (now - lastTime);
+
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          setTimeRemaining(`${hours}h ${minutes}m`);
+        } else {
+          setTimeRemaining("");
+        }
+      } else {
+        setTimeRemaining("");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 60000); // update every 1 min
+    return () => clearInterval(interval);
+  }, []);
+
   const submitMonitoring = async () => {
     if (!imageUrl) {
       setToastMsg("⚠️ Please take a photo first");
@@ -77,66 +121,47 @@ const TakePicture: React.FC = () => {
       return;
     }
 
+    if (timeRemaining) {
+      setToastMsg(`⚠️ You can submit again in ${timeRemaining}`);
+      setShowToast(true);
+      return;
+    }
+
     setLoading(true);
+
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("User not logged in");
 
-      // --- Local timezone "today" start and end ---
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      // Check if user already submitted today
-      const { data: existingToday } = await supabase
-        .from("tree_monitoring")
-        .select("id")
-        .eq("submission_id", submission_id)
-        .eq("user_id", user.id)
-        .gte("monitored_at", startOfDay.toISOString())
-        .lte("monitored_at", endOfDay.toISOString())
-        .limit(1);
-
-      if (existingToday && existingToday.length > 0) {
-        setToastMsg("⚠️ You can only submit once per day for this tree.");
-        setShowToast(true);
-        setLoading(false);
-        return;
-      }
-
-      // Get tree coordinates
       const { data: treeData, error: treeError } = await supabase
         .from("tree_submissions")
-        .select("latitude, longitude")
-        .eq("id", submission_id)
+        .select("latitude, longitude, tree_name")
+        .eq("submission_id", Number(submission_id))
         .single();
 
-      if (treeError || !treeData) throw new Error("Unable to fetch tree coordinates.");
+      if (treeError || !treeData) throw new Error("Tree not found");
 
       const { latitude: treeLat, longitude: treeLon } = treeData;
 
-      // Get user location
       const { latitude, longitude } = await getUserCoordinates();
       if (latitude === 0 && longitude === 0) {
         setLoading(false);
         return;
       }
 
-      // Validate distance
       const distance = getDistanceMeters(latitude, longitude, treeLat, treeLon);
       if (distance > 5) {
-        setToastMsg("⚠️ You are too far from the tree. Move closer to submit (within 5 meters).");
+        setToastMsg("⚠️ You are too far from the tree (must be within 5 meters).");
         setShowToast(true);
         setLoading(false);
         return;
       }
 
-      // Insert monitoring
       const { error: insertError } = await supabase.from("tree_monitoring").insert([
         {
-          submission_id,
+          submission_id: Number(submission_id),
           user_id: user.id,
           latitude,
           longitude,
@@ -149,8 +174,10 @@ const TakePicture: React.FC = () => {
 
       if (insertError) throw insertError;
 
-      setToastMsg("✅ Monitoring submitted successfully!");
+      setToastMsg(`✅ Monitoring submitted for tree: ${treeData.tree_name}`);
       setShowToast(true);
+      setImageUrl("");
+      setTimeRemaining("24h 0m"); // reset countdown
       setTimeout(() => history.push("/my-submissions"), 2000);
     } catch (err: any) {
       setToastMsg("Error: " + err.message);
@@ -172,7 +199,7 @@ const TakePicture: React.FC = () => {
         className="ion-padding"
         style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}
       >
-        <IonButton expand="block" onClick={takePhoto}>
+        <IonButton expand="block" onClick={takePhoto} disabled={!!timeRemaining}>
           📸 Take Photo
         </IonButton>
 
@@ -192,7 +219,11 @@ const TakePicture: React.FC = () => {
           <IonSelectOption value="Removed">Removed</IonSelectOption>
         </IonSelect>
 
-        <IonButton expand="block" color="success" onClick={submitMonitoring} disabled={loading}>
+        {timeRemaining && (
+          <IonText color="danger">⏳ Next submission available in {timeRemaining}</IonText>
+        )}
+
+        <IonButton expand="block" color="success" onClick={submitMonitoring} disabled={loading || !!timeRemaining}>
           {loading ? <IonSpinner /> : "✅ Submit Monitoring"}
         </IonButton>
 
