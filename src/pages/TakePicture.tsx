@@ -12,6 +12,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonText,
+  IonTextarea,
 } from "@ionic/react";
 import { useHistory, useParams } from "react-router";
 import { supabase } from "../utils/supabaseClient";
@@ -27,11 +28,13 @@ const TakePicture: React.FC = () => {
   const history = useHistory();
   const [imageUrl, setImageUrl] = useState<string>("");
   const [condition, setCondition] = useState<string>("Growing");
+  const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
 
+  // 📸 Take a photo
   const takePhoto = async () => {
     try {
       const photo = await Camera.getPhoto({
@@ -45,6 +48,7 @@ const TakePicture: React.FC = () => {
     }
   };
 
+  // 📍 Get user coordinates
   const getUserCoordinates = async () => {
     try {
       const position = await Geolocation.getCurrentPosition();
@@ -59,6 +63,7 @@ const TakePicture: React.FC = () => {
     }
   };
 
+  // 📏 Distance calculator
   const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const toRad = (x: number) => (x * Math.PI) / 180;
     const R = 6371000;
@@ -71,7 +76,7 @@ const TakePicture: React.FC = () => {
     return R * c;
   };
 
-  // Function to calculate remaining time
+  // ⏳ Check if user already submitted in the last 24h
   const calculateTimeRemaining = async () => {
     try {
       const {
@@ -82,7 +87,6 @@ const TakePicture: React.FC = () => {
       const { data: lastSubmission } = await supabase
         .from("tree_monitoring")
         .select("monitored_at")
-        .eq("submission_id", Number(submission_id))
         .eq("user_id", user.id)
         .order("monitored_at", { ascending: false })
         .limit(1)
@@ -110,10 +114,11 @@ const TakePicture: React.FC = () => {
 
   useEffect(() => {
     calculateTimeRemaining();
-    const interval = setInterval(calculateTimeRemaining, 60000); // update every 1 min
+    const interval = setInterval(calculateTimeRemaining, 60000);
     return () => clearInterval(interval);
   }, []);
 
+  // 🚀 Submit monitoring
   const submitMonitoring = async () => {
     if (!imageUrl) {
       setToastMsg("⚠️ Please take a photo first");
@@ -122,7 +127,7 @@ const TakePicture: React.FC = () => {
     }
 
     if (timeRemaining) {
-      setToastMsg(`⚠️ You can submit again in ${timeRemaining}`);
+      setToastMsg(`⚠️ You can only submit once per day. Try again in ${timeRemaining}`);
       setShowToast(true);
       return;
     }
@@ -159,6 +164,10 @@ const TakePicture: React.FC = () => {
         return;
       }
 
+      // 🎯 Always 2 points no matter the condition
+      const monitorPoints = 2;
+
+      // Insert monitoring record
       const { error: insertError } = await supabase.from("tree_monitoring").insert([
         {
           submission_id: Number(submission_id),
@@ -168,16 +177,36 @@ const TakePicture: React.FC = () => {
           image_url: imageUrl,
           monitored_at: new Date().toISOString(),
           condition,
-          notes: "",
+          notes,
+          monitor_points: monitorPoints,
         },
       ]);
 
       if (insertError) throw insertError;
 
-      setToastMsg(`✅ Monitoring submitted for tree: ${treeData.tree_name}`);
+      // ✅ Update user profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("greenpoints")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        await supabase
+          .from("profiles")
+          .update({
+            greenpoints: (profile.greenpoints || 0) + monitorPoints,
+          })
+          .eq("id", user.id);
+      }
+
+      setToastMsg(
+        `✅ Monitoring submitted for tree: ${treeData.tree_name}. You earned +${monitorPoints} GreenPoints!`
+      );
       setShowToast(true);
       setImageUrl("");
-      setTimeRemaining("24h 0m"); // reset countdown
+      setNotes("");
+      setTimeRemaining("24h 0m");
       setTimeout(() => history.push("/my-submissions"), 2000);
     } catch (err: any) {
       setToastMsg("Error: " + err.message);
@@ -219,11 +248,24 @@ const TakePicture: React.FC = () => {
           <IonSelectOption value="Removed">Removed</IonSelectOption>
         </IonSelect>
 
+        <IonTextarea
+          value={notes}
+          placeholder="Write notes about the tree..."
+          autoGrow={true}
+          onIonChange={(e) => setNotes(e.detail.value!)}
+          style={{ width: "100%" }}
+        />
+
         {timeRemaining && (
           <IonText color="danger">⏳ Next submission available in {timeRemaining}</IonText>
         )}
 
-        <IonButton expand="block" color="success" onClick={submitMonitoring} disabled={loading || !!timeRemaining}>
+        <IonButton
+          expand="block"
+          color="success"
+          onClick={submitMonitoring}
+          disabled={loading || !!timeRemaining}
+        >
           {loading ? <IonSpinner /> : "✅ Submit Monitoring"}
         </IonButton>
 
