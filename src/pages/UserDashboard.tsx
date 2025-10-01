@@ -20,7 +20,6 @@ import {
   IonLabel,
 } from "@ionic/react";
 import {
-  home,
   leaf,
   gift,
   podium,
@@ -71,12 +70,14 @@ const UserDashboard: React.FC = () => {
 
     setUserId(user.id);
 
-    // Fetch profile
+    // --- Base profile data ---
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("username, trees_planted, greenpoints, avatar_url")
       .eq("user_id", user.id)
       .single();
+
+    let totalGreenpoints = 0;
 
     if (profileError) {
       setFeedback("❌ Failed to load profile.");
@@ -84,22 +85,43 @@ const UserDashboard: React.FC = () => {
     } else {
       setUserName(profileData?.username || "Guest");
       setTreesPlanted(profileData?.trees_planted || 0);
-      setGreenpoints(profileData?.greenpoints || 0);
       setAvatarUrl(profileData?.avatar_url || null);
+
+      totalGreenpoints += profileData?.greenpoints || 0;
     }
 
-    // Fetch streak points
+    // --- Sum streak points ---
     const { data: streakData, error: streakError } = await supabase
-      .from("streak")
-      .select("total_points")
-      .eq("user_id", user.id)
-      .single();
+      .from("user_streaks")
+      .select("points_earned")
+      .eq("user_id", user.id);
 
     if (!streakError && streakData) {
-      setGreenpoints((prev) => (prev || 0) + (streakData.total_points || 0));
+      const streakPoints = streakData.reduce(
+        (sum, row) => sum + Number(row.points_earned || 0),
+        0
+      );
+      totalGreenpoints += streakPoints;
     }
 
-    // Pending submissions
+    // --- Sum monitor points ---
+    const { data: monitorData, error: monitorError } = await supabase
+      .from("tree_monitoring")
+      .select("monitor_points")
+      .eq("user_id", user.id);
+
+    if (!monitorError && monitorData) {
+      const monitorPoints = monitorData.reduce(
+        (sum, row) => sum + (row.monitor_points || 0),
+        0
+      );
+      totalGreenpoints += monitorPoints;
+    }
+
+    // ✅ Update final total
+    setGreenpoints(totalGreenpoints);
+
+    // --- Pending submissions ---
     const { count, error: submissionsError } = await supabase
       .from("tree_submissions")
       .select("*", { count: "exact", head: true })
@@ -108,7 +130,7 @@ const UserDashboard: React.FC = () => {
 
     if (!submissionsError) setPendingSubmissions(count || 0);
 
-    // Latest news
+    // --- Latest news ---
     const { data: news, error: newsError } = await supabase
       .from("news")
       .select("id, title, content, image_url, created_at")
@@ -117,7 +139,7 @@ const UserDashboard: React.FC = () => {
 
     if (!newsError && news) setNewsList(news);
 
-    // Latest events
+    // --- Latest events ---
     const { data: events, error: eventsError } = await supabase
       .from("events")
       .select(
@@ -135,15 +157,14 @@ const UserDashboard: React.FC = () => {
     fetchUserData();
   }, []);
 
-  // --- Fixed logout function ---
+  // Logout function
   const handleLogout = async () => {
     try {
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
+      if (!user) {
         setFeedback("❌ No user logged in.");
         setShowToast(true);
         return;
@@ -165,9 +186,7 @@ const UserDashboard: React.FC = () => {
           .eq("logs_id", lastLog.logs_id);
       }
 
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
-
+      await supabase.auth.signOut();
       setFeedback("👋 Logged out successfully!");
       setShowToast(true);
 
@@ -212,7 +231,7 @@ const UserDashboard: React.FC = () => {
             <IonButton
               fill="clear"
               size="small"
-              onClick={(e) => setShowSettings(true)}
+              onClick={() => setShowSettings(true)}
               title="Settings"
             >
               <IonIcon icon={settingsOutline} slot="icon-only" />
@@ -231,7 +250,6 @@ const UserDashboard: React.FC = () => {
                   <IonIcon icon={gift} slot="start" />
                   <IonLabel>Rewards</IonLabel>
                 </IonItem>
-
                 <IonItem
                   button
                   href="/GreenPoints/editprofile"
@@ -285,62 +303,32 @@ const UserDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="action-buttons">
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="warning"
-            href="/GreenPoints/streak"
-          >
+          <IonButton expand="block" className="dashboard-button" color="warning" href="/GreenPoints/streak">
             <IonIcon icon={podium} slot="start" />
             Achievements
           </IonButton>
 
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="success"
-            href="/GreenPoints/submittree"
-          >
+          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/submittree">
             <IonIcon icon={camera} slot="start" />
             Submit New Tree
           </IonButton>
 
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="tertiary"
-            href="/GreenPoints/leaderboard"
-          >
+          <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/leaderboard">
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
           </IonButton>
 
-          <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="primary"
-            href="/GreenPoints/feedback"
-          >
+          <IonButton expand="block" className="dashboard-button" color="primary" href="/GreenPoints/feedback">
             <IonIcon icon={chatbox} slot="start" />
             Feedback
           </IonButton>
 
-           <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="danger"
-            href="/GreenPoints/participate"
-          >
+          <IonButton expand="block" className="dashboard-button" color="danger" href="/GreenPoints/participate">
             <IonIcon icon={chatbox} slot="start" />
             Event
           </IonButton>
 
-           <IonButton
-            expand="block"
-            className="dashboard-button"
-            color="primary"
-            href="/GreenPoints/treemonitor"
-          >
+          <IonButton expand="block" className="dashboard-button" color="primary" href="/GreenPoints/treemonitor">
             <IonIcon icon={chatbox} slot="start" />
             Monitor Tree
           </IonButton>
@@ -354,32 +342,17 @@ const UserDashboard: React.FC = () => {
         {newsList.length > 0 ? (
           newsList.map((news) => (
             <IonCard key={news.id} className="news-card">
-              {news.image_url && (
-                <IonImg
-                  src={news.image_url}
-                  alt={news.title}
-                  className="news-image"
-                />
-              )}
+              {news.image_url && <IonImg src={news.image_url} alt={news.title} className="news-image" />}
               <IonCardHeader>
                 <IonCardTitle>{news.title}</IonCardTitle>
               </IonCardHeader>
               <IonCardContent>
                 <p>
-                  {news.content.length > 120
-                    ? news.content.substring(0, 120) + "..."
-                    : news.content}
+                  {news.content.length > 120 ? news.content.substring(0, 120) + "..." : news.content}
                 </p>
-                <small>
-                  📅 {new Date(news.created_at).toLocaleDateString()}
-                </small>
+                <small>📅 {new Date(news.created_at).toLocaleDateString()}</small>
                 <div style={{ marginTop: "10px", textAlign: "right" }}>
-                  <IonButton
-                    size="small"
-                    fill="outline"
-                    color="primary"
-                    href={`/GreenPoints/news/${news.id}`}
-                  >
+                  <IonButton size="small" fill="outline" color="primary" href={`/GreenPoints/news/${news.id}`}>
                     Read More
                   </IonButton>
                 </div>
@@ -403,25 +376,16 @@ const UserDashboard: React.FC = () => {
               </IonCardHeader>
               <IonCardContent>
                 <p>
-                  {event.description.length > 120
-                    ? event.description.substring(0, 120) + "..."
-                    : event.description}
+                  {event.description.length > 120 ? event.description.substring(0, 120) + "..." : event.description}
                 </p>
                 <small>
-                  📅 {new Date(event.date).toLocaleDateString()} |{" "}
-                  {event.registration_type} | 🎟 Max:{" "}
+                  📅 {new Date(event.date).toLocaleDateString()} | {event.registration_type} | 🎟 Max:{" "}
                   {event.max_participants || "Unlimited"}
                 </small>
                 <div style={{ marginTop: "10px", textAlign: "right" }}>
-                  <IonButton
-  size="small"
-  fill="outline"
-  color="secondary"
-  href={`/GreenPoints/events/${event.event_id}`}
->
-  View Details
-</IonButton>
-
+                  <IonButton size="small" fill="outline" color="secondary" href={`/GreenPoints/events/${event.event_id}`}>
+                    View Details
+                  </IonButton>
                 </div>
               </IonCardContent>
             </IonCard>
