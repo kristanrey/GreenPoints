@@ -16,7 +16,7 @@ import {
 import { trophy, medal } from "ionicons/icons";
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
-import "./Leaderboard.css";
+import "./css/Leaderboard.css";
 
 interface Player {
   rank: number;

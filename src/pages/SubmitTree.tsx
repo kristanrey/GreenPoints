@@ -25,7 +25,7 @@ import { Capacitor } from "@capacitor/core";
 import { supabase } from "../utils/supabaseClient";
 import { camera, cameraReverse, images, checkmarkCircle } from "ionicons/icons";
 import exifr from "exifr";
-import "./SubmitNewTree.css";
+import "./css/SubmitNewTree.css";
 
 const SubmitNewTree: React.FC = () => {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);

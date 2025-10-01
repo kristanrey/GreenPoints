@@ -5,7 +5,7 @@
     IonButton,
     IonText
   } from "@ionic/react";
-  import "./Landing.css";
+  import "./css/Landing.css";
   import { useHistory } from "react-router-dom";
 
   const Landing: React.FC = () => {

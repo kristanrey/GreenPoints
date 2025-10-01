@@ -14,7 +14,7 @@ import {
   IonText,
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
-import "./EditProfile.css"; // ✅ custom styling
+import "./css/EditProfile.css"; // ✅ custom styling
 
 const ProfilePage: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);

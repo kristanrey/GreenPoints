@@ -1,0 +1,70 @@
+.rewards-background {
+  background: linear-gradient(135deg, #e8f3ff, #e8ffe8);
+  min-height: 100%;
+}
+
+.reward-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  position: relative;
+  transition: transform 0.2s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.reward-card:hover {
+  transform: translateY(-5px);
+}
+
+.reward-points {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #4caf50;
+  color: #fff;
+  font-weight: bold;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.reward-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 15px 0;
+  height: 100px;
+}
+
+.reward-icon img {
+  max-height: 80px;
+  max-width: 80px;
+  object-fit: contain;
+}
+
+.placeholder-icon {
+  font-size: 50px;
+}
+
+.reward-body h3 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 10px 0 6px;
+  color: #333;
+}
+
+.reward-body p {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.reward-button {
+  border-radius: 12px;
+  font-weight: 500;
+}

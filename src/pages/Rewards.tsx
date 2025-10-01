@@ -1,60 +1,96 @@
-// src/pages/RewardsPage.tsx
+import React, { useEffect, useState } from "react";
 import {
   IonPage,
   IonHeader,
   IonToolbar,
   IonTitle,
   IonContent,
-  IonCard,
-  IonCardHeader,
-  IonCardTitle,
-  IonCardContent,
-  IonBadge,
   IonGrid,
   IonRow,
   IonCol,
+  IonSpinner,
+  IonButton,
 } from "@ionic/react";
+import { supabase } from "../utils/supabaseClient";
+import "./css/Rewards.css";
 
 interface Reward {
   id: number;
   name: string;
-  description: string;
-  pointsRequired: number;
+  description: string | null;
+  points: number;
+  image_url?: string | null;
 }
 
 const RewardsPage: React.FC = () => {
-  // Example reward data, replace with database fetch if needed
-  const rewards: Reward[] = [
-    { id: 1, name: "Reusable Water Bottle", description: "Eco-friendly stainless steel bottle.", pointsRequired: 50 },
-    { id: 2, name: "Tree Planting Kit", description: "Everything you need to plant a tree at home.", pointsRequired: 100 },
-    { id: 3, name: "Eco Tote Bag", description: "Carry your items in style while saving the planet.", pointsRequired: 30 },
-    { id: 4, name: "Discount Voucher", description: "Get a 10% discount on eco-friendly products.", pointsRequired: 70 },
-  ];
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRewards = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("rewards")
+        .select("id, name, description, points, image_url")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching rewards:", error.message);
+      } else if (data) {
+        setRewards(data);
+      }
+      setLoading(false);
+    };
+
+    fetchRewards();
+  }, []);
 
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar>
-          <IonTitle>Rewards</IonTitle>
+        <IonToolbar color="light">
+          <IonTitle className="ion-text-center">🌿 Rewards</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
-        <IonGrid>
-          <IonRow>
-            {rewards.map((reward) => (
-              <IonCol size="12" sizeMd="6" key={reward.id}>
-                <IonCard>
-                  <IonCardHeader>
-                    <IonCardTitle>{reward.name}</IonCardTitle>
-                    <IonBadge color="success">{reward.pointsRequired} Points</IonBadge>
-                  </IonCardHeader>
-                  <IonCardContent>{reward.description}</IonCardContent>
-                </IonCard>
-              </IonCol>
-            ))}
-          </IonRow>
-        </IonGrid>
+      <IonContent className="ion-padding rewards-background">
+        {loading ? (
+          <div className="ion-text-center ion-padding">
+            <IonSpinner name="crescent" />
+          </div>
+        ) : rewards.length === 0 ? (
+          <p className="ion-text-center">No rewards available yet.</p>
+        ) : (
+          <IonGrid>
+            <IonRow>
+              {rewards.map((reward) => (
+                <IonCol size="12" sizeMd="6" sizeLg="4" key={reward.id}>
+                  <div className="reward-card">
+                    <div className="reward-points">+{reward.points}</div>
+                    <div className="reward-icon">
+                      {reward.image_url ? (
+                        <img src={reward.image_url} alt={reward.name} />
+                      ) : (
+                        <span className="placeholder-icon">🎁</span>
+                      )}
+                    </div>
+                    <div className="reward-body">
+                      <h3>{reward.name}</h3>
+                      <p>{reward.description || "No description available."}</p>
+                      <IonButton
+                        expand="block"
+                        color="success"
+                        className="reward-button"
+                      >
+                        Claim for {reward.points} pts
+                      </IonButton>
+                    </div>
+                  </div>
+                </IonCol>
+              ))}
+            </IonRow>
+          </IonGrid>
+        )}
       </IonContent>
     </IonPage>
   );

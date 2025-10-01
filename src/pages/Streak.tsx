@@ -172,9 +172,7 @@ const Streak: React.FC = () => {
 
         {/* Caption */}
         <IonText>
-          <p>
-            ✅ Check = logged in that day. 🔲 Orange border = today. 🔥 Points = stored in user_streaks table. +0.5 per login, +0.1 per consecutive day.
-          </p>
+          
         </IonText>
       </IonContent>
     </IonPage>

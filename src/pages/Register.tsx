@@ -19,7 +19,7 @@ import {
 } from "@ionic/react";
 import { useState } from "react";
 import { mailOutline, personOutline, lockClosedOutline } from "ionicons/icons";
-import "./Register.css";
+import "./css/Register.css";
 import { supabase } from "../utils/supabaseClient";
 
 const Register: React.FC = () => {

@@ -33,7 +33,7 @@ import {
 } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
-import "./UserDashboard.css";
+import "./css/UserDashboard.css";
 
 const UserDashboard: React.FC = () => {
   const [userName, setUserName] = useState("");

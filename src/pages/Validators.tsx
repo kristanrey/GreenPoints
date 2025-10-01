@@ -5,7 +5,7 @@ import { supabase } from "../utils/supabaseClient";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "./Validators.css";
+import "./css/Validators.css";
 
 interface Activity {
   id: number;
@@ -146,6 +146,12 @@ const Validators: React.FC = () => {
                 <span className="text">Events</span>
               </a>
             </li>
+             <li>
+               <a href="http://localhost:8100/GreenPoints/createrewards">
+                <i className="bx bxs-cog"></i>
+                <span className="text">Rewards</span>
+              </a>
+            </li>
             <li>
               <a href="#" className="logout">
                 <i className="bx bxs-log-out-circle"></i>
@@ -251,28 +257,7 @@ const Validators: React.FC = () => {
               </div>
 
               {/* VALIDATORS MAP */}
-              <div className="todo">
-                <div className="head">
-                  <h3>Validators Map</h3>
-                </div>
-                <div style={{ height: "400px", width: "100%" }}>
-                  <MapContainer
-                    center={[10, 124]} // approximate center of the Philippines
-                    zoom={6}
-                    style={{ height: "100%", width: "100%" }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    />
-                    {validators.map((v) => (
-                      <Marker key={v.id} position={[v.latitude, v.longitude]}>
-                        <Popup>{v.full_name}</Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
-              </div>
+             
             </div>
           </main>
         </section>

@@ -13,7 +13,7 @@ import {
 import { supabase } from "../utils/supabaseClient";
 import { useHistory } from "react-router-dom";
 import { eye, eyeOff } from "ionicons/icons";
-import './ValidatorsLogin.css';
+import './css/ValidatorsLogin.css';
 
 const ValidatorsAuth: React.FC = () => {
   const history = useHistory();
