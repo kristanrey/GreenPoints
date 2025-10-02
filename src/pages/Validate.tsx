@@ -247,8 +247,6 @@ const ValidatePage: React.FC = () => {
                         >
                           Reject
                         </IonButton>
-                        {/* ✅ New View on Map button */}
-                      
                       </div>
                     )}
                   </div>
@@ -292,7 +290,7 @@ const ValidatePage: React.FC = () => {
                           <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Raw)</td>
                           <td style={{ padding: "4px" }}>
                             <a
-                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: "#007bff", textDecoration: "underline" }}
@@ -313,7 +311,7 @@ const ValidatePage: React.FC = () => {
                           <td style={{ fontWeight: "600", padding: "4px" }}>Latitude (DMS)</td>
                           <td style={{ padding: "4px" }}>
                             <a
-                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: "#007bff", textDecoration: "underline" }}
@@ -326,7 +324,7 @@ const ValidatePage: React.FC = () => {
                           <td style={{ fontWeight: "600", padding: "4px" }}>Longitude (DMS)</td>
                           <td style={{ padding: "4px" }}>
                             <a
-                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: "#007bff", textDecoration: "underline" }}
@@ -356,3 +354,4 @@ const ValidatePage: React.FC = () => {
 };
 
 export default ValidatePage;
+  
