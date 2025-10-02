@@ -50,7 +50,8 @@ import TreeMonitor from "./pages/TreeMonitor";
 import RadarPage from "./pages/RadarPage";
 import TakePicture from "./pages/TakePicture";
 import Input from "./pages/Input";
-import CreateRewards from "./pages/CreateRewards";
+import CreateRew from "./pages/CreateRew";
+import UpdateReward from "./pages/UpdateReward";
 
 
 
@@ -104,7 +105,10 @@ const App: React.FC = () => (
                     <Route path="/radar/:id" component={RadarPage} exact />
                      <Route path="/take-picture/:submission_id" component={TakePicture} exact />
                       <Route path="/GreenPoints/input"  component={Input} exact />
-                      <Route path="/GreenPoints/createrewards "  component={CreateRewards} exact />
+                       <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
+                       <Route path="/update-reward/:id" component={UpdateReward} exact />
+
+                     
                      
                      
 

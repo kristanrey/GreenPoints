@@ -147,7 +147,7 @@ const Validators: React.FC = () => {
               </a>
             </li>
              <li>
-               <a href="http://localhost:8100/GreenPoints/createrewards">
+               <a href="http://localhost:8100/GreenPoints/createrew">
                 <i className="bx bxs-cog"></i>
                 <span className="text">Rewards</span>
               </a>
