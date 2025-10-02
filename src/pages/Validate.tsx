@@ -15,9 +15,11 @@ import {
   IonCardTitle,
   IonCardContent,
   IonButtons,
+  IonIcon,
 } from "@ionic/react";
 import { useHistory } from "react-router";
 import { supabase } from "../utils/supabaseClient";
+import { locationOutline } from "ionicons/icons";
 
 interface Submission {
   submission_id: number;
@@ -261,7 +263,9 @@ const ValidatePage: React.FC = () => {
                       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>Tree Info & EXIF Metadata</h4>
+                    <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
+                      Tree Info & EXIF Metadata
+                    </h4>
                     <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse" }}>
                       <tbody>
                         <tr>
@@ -278,7 +282,9 @@ const ValidatePage: React.FC = () => {
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Date taken</td>
-                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.DateTimeOriginal || sub.date_planted}</td>
+                          <td style={{ padding: "4px" }}>
+                            {sub.exif_metadata?.DateTimeOriginal || sub.date_planted}
+                          </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Device</td>
@@ -289,47 +295,46 @@ const ValidatePage: React.FC = () => {
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Raw)</td>
                           <td style={{ padding: "4px" }}>
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: "#007bff", textDecoration: "underline" }}
-                            >
-                              {sub.latitude}, {sub.longitude}
-                            </a>
+                            {sub.latitude}, {sub.longitude}
                           </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Orientation</td>
-                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.Orientation || "N/A"}</td>
+                          <td style={{ padding: "4px" }}>
+                            {sub.exif_metadata?.Orientation || "N/A"}
+                          </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Exif version</td>
-                          <td style={{ padding: "4px" }}>{sub.exif_metadata?.ExifVersion || "N/A"}</td>
+                          <td style={{ padding: "4px" }}>
+                            {sub.exif_metadata?.ExifVersion || "N/A"}
+                          </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Latitude (DMS)</td>
-                          <td style={{ padding: "4px" }}>
+                          <td style={{ padding: "4px", display: "flex", alignItems: "center" }}>
+                            {toDMS(sub.latitude, "lat")}
                             <a
                               href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{ color: "#007bff", textDecoration: "underline" }}
+                              style={{ marginLeft: "6px" }}
                             >
-                              {toDMS(sub.latitude, "lat")}
+                              <IonIcon icon={locationOutline} color="primary" />
                             </a>
                           </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Longitude (DMS)</td>
-                          <td style={{ padding: "4px" }}>
+                          <td style={{ padding: "4px", display: "flex", alignItems: "center" }}>
+                            {toDMS(sub.longitude, "lon")}
                             <a
                               href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{ color: "#007bff", textDecoration: "underline" }}
+                              style={{ marginLeft: "6px" }}
                             >
-                              {toDMS(sub.longitude, "lon")}
+                              <IonIcon icon={locationOutline} color="primary" />
                             </a>
                           </td>
                         </tr>
@@ -354,4 +359,3 @@ const ValidatePage: React.FC = () => {
 };
 
 export default ValidatePage;
-  

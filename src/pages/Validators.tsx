@@ -153,6 +153,13 @@ const Validators: React.FC = () => {
               </a>
             </li>
             <li>
+              <li>
+  <a href="http://localhost:8100/GreenPoints/statistics">
+    <i className="bx bxs-bar-chart-alt-2"></i>
+    <span className="text">Statistics</span>
+  </a>
+</li>
+
               <a href="#" className="logout">
                 <i className="bx bxs-log-out-circle"></i>
                 <span className="text">Logout</span>

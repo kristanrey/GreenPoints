@@ -47,6 +47,9 @@ const SubmitNewTree: React.FC = () => {
     { location_id: number; municipality: string; barangay: string }[]
   >([]);
 
+  // ✅ Added static barangays
+  const fixedBarangays = ["Agusan", "Dalirig", "Damilag", "Alae", "Sto. Niño"];
+
   useEffect(() => {
     setIsNative(Capacitor.isNativePlatform());
     fetchTrees();
@@ -71,7 +74,7 @@ const SubmitNewTree: React.FC = () => {
     else setLocationOptions(data || []);
   };
 
-  // fallback geolocation (only if EXIF missing)
+  // fallback geolocation
   const getGeoCoords = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       let position;
@@ -94,7 +97,7 @@ const SubmitNewTree: React.FC = () => {
     }
   };
 
-  // always prefer EXIF GPS
+  // extract EXIF
   const extractExif = async (blob: Blob) => {
     try {
       const metadata = await exifr.parse(blob, { gps: true });
@@ -177,7 +180,6 @@ const SubmitNewTree: React.FC = () => {
       const { data: pub } = supabase.storage.from("greenpoints").getPublicUrl(filename);
       const publicUrl = pub?.publicUrl ?? null;
 
-      // Save EXIF + coords + dropdown selections to DB
       const { error: dbErr } = await supabase.from("tree_submissions").insert([
         {
           user_id: user.id,
@@ -188,7 +190,7 @@ const SubmitNewTree: React.FC = () => {
           status: "pending",
           description: "Planted a new tree 🌱",
           date_planted: datePlanted,
-          tree_name: selectedTree, // <-- INSERT into tree_name, removed tree_type
+          tree_name: selectedTree,
           municipality: selectedMunicipality,
           barangay: selectedBarangay,
           exif_metadata: exifData ? JSON.stringify(exifData) : null,
@@ -255,7 +257,7 @@ const SubmitNewTree: React.FC = () => {
                 placeholder="Select municipality"
                 onIonChange={(e) => {
                   setSelectedMunicipality(e.detail.value);
-                  setSelectedBarangay(null); // reset barangay
+                  setSelectedBarangay(null);
                 }}
               >
                 {[...new Set(locationOptions.map((loc) => loc.municipality))].map((mun) => (
@@ -274,6 +276,14 @@ const SubmitNewTree: React.FC = () => {
                 onIonChange={(e) => setSelectedBarangay(e.detail.value)}
                 disabled={!selectedMunicipality}
               >
+                {/* ✅ Fixed barangays */}
+                {fixedBarangays.map((bgy) => (
+                  <IonSelectOption key={bgy} value={bgy}>
+                    {bgy}
+                  </IonSelectOption>
+                ))}
+
+                {/* ✅ DB barangays */}
                 {locationOptions
                   .filter((loc) => loc.municipality === selectedMunicipality)
                   .map((loc) => (

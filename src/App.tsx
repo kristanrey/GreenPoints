@@ -52,6 +52,7 @@ import TakePicture from "./pages/TakePicture";
 import Input from "./pages/Input";
 import CreateRew from "./pages/CreateRew";
 import UpdateReward from "./pages/UpdateReward";
+import Statistics from "./pages/Statistics";
 
 
 
@@ -108,6 +109,8 @@ const App: React.FC = () => (
                       <Route path="/GreenPoints/input"  component={Input} exact />
                        <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
                        <Route path="/update-reward/:id" component={UpdateReward} exact />
+                       <Route path="/GreenPoints/statistics" component={Statistics} exact />
+
 
 
 
