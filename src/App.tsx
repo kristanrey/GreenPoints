@@ -63,6 +63,7 @@ import UpdateReward from "./pages/UpdateReward";
 
 
 
+
 setupIonicReact();
 
 const App: React.FC = () => (
@@ -107,6 +108,9 @@ const App: React.FC = () => (
                       <Route path="/GreenPoints/input"  component={Input} exact />
                        <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
                        <Route path="/update-reward/:id" component={UpdateReward} exact />
+
+
+
 
                      
                      

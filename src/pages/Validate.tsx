@@ -203,7 +203,7 @@ const ValidatePage: React.FC = () => {
                     alignItems: "flex-start",
                   }}
                 >
-                  {/* Left: Image only */}
+                  {/* Left: Image + Buttons */}
                   <div style={{ textAlign: "center" }}>
                     {sub.image_url ? (
                       <IonImg
@@ -230,6 +230,7 @@ const ValidatePage: React.FC = () => {
                           gap: "12px",
                           marginTop: "12px",
                           justifyContent: "center",
+                          flexWrap: "wrap",
                         }}
                       >
                         <IonButton
@@ -246,6 +247,8 @@ const ValidatePage: React.FC = () => {
                         >
                           Reject
                         </IonButton>
+                        {/* ✅ New View on Map button */}
+                      
                       </div>
                     )}
                   </div>
@@ -287,7 +290,16 @@ const ValidatePage: React.FC = () => {
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Raw)</td>
-                          <td style={{ padding: "4px" }}>{sub.latitude}, {sub.longitude}</td>
+                          <td style={{ padding: "4px" }}>
+                            <a
+                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#007bff", textDecoration: "underline" }}
+                            >
+                              {sub.latitude}, {sub.longitude}
+                            </a>
+                          </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Orientation</td>
@@ -299,11 +311,29 @@ const ValidatePage: React.FC = () => {
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Latitude (DMS)</td>
-                          <td style={{ padding: "4px" }}>{toDMS(sub.latitude, "lat")}</td>
+                          <td style={{ padding: "4px" }}>
+                            <a
+                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#007bff", textDecoration: "underline" }}
+                            >
+                              {toDMS(sub.latitude, "lat")}
+                            </a>
+                          </td>
                         </tr>
                         <tr>
                           <td style={{ fontWeight: "600", padding: "4px" }}>Longitude (DMS)</td>
-                          <td style={{ padding: "4px" }}>{toDMS(sub.longitude, "lon")}</td>
+                          <td style={{ padding: "4px" }}>
+                            <a
+                              href={`https://www.google.com/maps?q=${sub.latitude},${sub.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#007bff", textDecoration: "underline" }}
+                            >
+                              {toDMS(sub.longitude, "lon")}
+                            </a>
+                          </td>
                         </tr>
                       </tbody>
                     </table>
