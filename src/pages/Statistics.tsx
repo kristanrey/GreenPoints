@@ -41,12 +41,22 @@ interface Monitoring {
   condition: string;
 }
 
+interface LogEntry {
+  email: string;
+  action: string;
+  login_time: string;
+}
+
 const StatisticsPage: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [monitoring, setMonitoring] = useState<Monitoring[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [selectedBarangay, setSelectedBarangay] = useState<string>("All");
   const [selectedCondition, setSelectedCondition] = useState<string>("All");
+  const [logFilter, setLogFilter] = useState<string>("daily"); // daily | weekly
 
   useEffect(() => {
     fetchStatistics();
@@ -59,7 +69,6 @@ const StatisticsPage: React.FC = () => {
       const { data: subData, error: subError } = await supabase
         .from("tree_submissions")
         .select("created_at, status, barangay, greenpoints");
-
       if (subError) throw subError;
       setSubmissions(subData || []);
 
@@ -67,9 +76,15 @@ const StatisticsPage: React.FC = () => {
       const { data: monData, error: monError } = await supabase
         .from("tree_monitoring")
         .select("monitored_at, condition");
-
       if (monError) throw monError;
       setMonitoring(monData || []);
+
+      // Fetch from logs
+      const { data: logData, error: logError } = await supabase
+        .from("logs")
+        .select("email, action, login_time");
+      if (logError) throw logError;
+      setLogs(logData || []);
     } catch (err: any) {
       console.error("Error fetching stats:", err.message);
     }
@@ -83,13 +98,12 @@ const StatisticsPage: React.FC = () => {
       : submissions.filter((s) => s.barangay === selectedBarangay);
 
   const filteredMonitoring = monitoring.filter((m) => {
-    const barangayMatch = true; // keep monitoring global if no barangay
     const conditionMatch =
       selectedCondition === "All" || m.condition === selectedCondition;
-    return barangayMatch && conditionMatch;
+    return conditionMatch;
   });
 
-  // 1. Bar Graph: Submissions per Barangay
+  // --- Bar Graph: Submissions per Barangay ---
   const barangayCount = filteredSubmissions.reduce((acc: any, s) => {
     acc[s.barangay] = (acc[s.barangay] || 0) + 1;
     return acc;
@@ -99,7 +113,7 @@ const StatisticsPage: React.FC = () => {
     count,
   }));
 
-  // 2. Histogram: Distribution of GreenPoints
+  // --- Histogram: GreenPoints Distribution ---
   const histBins: { [key: string]: number } = {};
   filteredSubmissions.forEach((s) => {
     const rangeStart = Math.floor(s.greenpoints / 10) * 10;
@@ -111,7 +125,7 @@ const StatisticsPage: React.FC = () => {
     count,
   }));
 
-  // 3. Line Graph: Submissions over Time (monthly)
+  // --- Line Graph: Submissions over Time ---
   const monthlySubmissions = filteredSubmissions.reduce((acc: any, s) => {
     const month = new Date(s.created_at).toLocaleString("default", {
       month: "short",
@@ -125,7 +139,7 @@ const StatisticsPage: React.FC = () => {
     count,
   }));
 
-  // 4. Pie Chart: Tree Conditions (Filtered)
+  // --- Pie Chart: Tree Conditions ---
   const conditionCount = filteredMonitoring.reduce((acc: any, m) => {
     acc[m.condition] = (acc[m.condition] || 0) + 1;
     return acc;
@@ -135,7 +149,47 @@ const StatisticsPage: React.FC = () => {
     value: count,
   }));
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A569BD"];
+  // ✅ Condition colors
+  const conditionColors: Record<string, string> = {
+    growing: "#0088FE", // blue
+    dying: "#FF0000", // red
+    remove: "#00C49F", // green
+  };
+
+  // --- Logs: Group logins per day or week ---
+  const logCounts: { [key: string]: number } = {};
+  logs.forEach((log) => {
+    if (log.action === "login") {
+      const date = new Date(log.login_time);
+      let key = "";
+
+      if (logFilter === "daily") {
+        key = date.toLocaleDateString("default", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      } else if (logFilter === "weekly") {
+        // group by week number
+        const onejan = new Date(date.getFullYear(), 0, 1);
+        const week = Math.ceil(
+          ((date.getTime() - onejan.getTime()) / 86400000 +
+            onejan.getDay() +
+            1) /
+            7
+        );
+        key = `Week ${week}, ${date.getFullYear()}`;
+      }
+
+      logCounts[key] = (logCounts[key] || 0) + 1;
+    }
+  });
+
+  const logData = Object.entries(logCounts).map(([period, count]) => ({
+    period,
+    count,
+  }));
+
   const barangayList = Array.from(new Set(submissions.map((s) => s.barangay)));
   const conditionList = Array.from(new Set(monitoring.map((m) => m.condition)));
 
@@ -184,6 +238,18 @@ const StatisticsPage: React.FC = () => {
                       {c}
                     </IonSelectOption>
                   ))}
+                </IonSelect>
+              </IonItem>
+
+              <IonItem style={{ flex: 1 }}>
+                <IonLabel>Logins Filter</IonLabel>
+                <IonSelect
+                  value={logFilter}
+                  placeholder="Select Log Filter"
+                  onIonChange={(e) => setLogFilter(e.detail.value)}
+                >
+                  <IonSelectOption value="daily">Daily</IonSelectOption>
+                  <IonSelectOption value="weekly">Weekly</IonSelectOption>
                 </IonSelect>
               </IonItem>
             </div>
@@ -257,13 +323,31 @@ const StatisticsPage: React.FC = () => {
                       {pieData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
+                          fill={
+                            conditionColors[entry.name.toLowerCase()] ||
+                            "#A569BD"
+                          }
                         />
                       ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
                   </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* --- LOGIN LOGS BAR CHART --- */}
+              <div>
+                <h3>User Logins ({logFilter})</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={logData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#FF5733" />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
