@@ -314,7 +314,7 @@ const UserDashboard: React.FC = () => {
             Submit New Tree
           </IonButton>
 
-          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/appoinment">
+          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/appointment">
             <IonIcon icon={calendar} slot="start" />
             Appointment
           </IonButton>

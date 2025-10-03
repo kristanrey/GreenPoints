@@ -53,7 +53,10 @@ import Input from "./pages/Input";
 import CreateRew from "./pages/CreateRew";
 import UpdateReward from "./pages/UpdateReward";
 import Statistics from "./pages/Statistics";
-import Appoinment from "./pages/Appoinment";
+import Appointment from './pages/Appointment';
+import Approval from './pages/Approval';
+
+
 
 
 
@@ -111,13 +114,15 @@ const App: React.FC = () => (
                        <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
                        <Route path="/update-reward/:id" component={UpdateReward} exact />
                        <Route path="/GreenPoints/statistics" component={Statistics} exact />
-                        <Route path="/GreenPoints/appointment" component={Appoinment} exact />
+                        <Route path="/GreenPoints/appointment" component={Appointment} exact />
+                       <Route path="/GreenPoints/approval" component={Approval} exact />
+                        
 
 
 
 
 
-                     
+                      
                      
                      
 
