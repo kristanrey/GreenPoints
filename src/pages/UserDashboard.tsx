@@ -30,6 +30,7 @@ import {
   newspaper,
   settingsOutline,
   calendar,
+  searchOutline,
 } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
@@ -313,6 +314,11 @@ const UserDashboard: React.FC = () => {
             Submit New Tree
           </IonButton>
 
+          <IonButton expand="block" className="dashboard-button" color="success" href="/GreenPoints/appoinment">
+            <IonIcon icon={calendar} slot="start" />
+            Appointment
+          </IonButton>
+
           <IonButton expand="block" className="dashboard-button" color="tertiary" href="/GreenPoints/leaderboard">
             <IonIcon icon={podium} slot="start" />
             View Leaderboard
@@ -324,12 +330,12 @@ const UserDashboard: React.FC = () => {
           </IonButton>
 
           <IonButton expand="block" className="dashboard-button" color="danger" href="/GreenPoints/participate">
-            <IonIcon icon={chatbox} slot="start" />
+            <IonIcon icon={calendar} slot="start" />
             Event
           </IonButton>
 
           <IonButton expand="block" className="dashboard-button" color="primary" href="/GreenPoints/treemonitor">
-            <IonIcon icon={chatbox} slot="start" />
+            <IonIcon icon={searchOutline} slot="start" />
             Monitor Tree
           </IonButton>
         </div>
