@@ -24,7 +24,7 @@ interface Event {
   description: string;
   date: string;
   registration_type: string;
-  max_participants: number;
+  max_participants: number | null;
   created_by: string;
 }
 
@@ -52,7 +52,8 @@ const EventDetails: React.FC = () => {
       .eq("event_id", id)
       .single();
 
-    if (error) {
+    if (error || !data) {
+      console.error("Error fetching event:", error?.message);
       setToastMessage("Error fetching event details");
       setLoading(false);
       return;
@@ -96,14 +97,9 @@ const EventDetails: React.FC = () => {
     fetchEventDetails();
   }, [id]);
 
-  // ✅ Register logic with duplicate check
+  // ✅ Register logic with proper handling for "open" events
   const handleRegister = async () => {
     if (!event) return;
-
-    if (registeredCount >= event.max_participants) {
-      setToastMessage("Sorry, this event is full.");
-      return;
-    }
 
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) {
@@ -111,7 +107,7 @@ const EventDetails: React.FC = () => {
       return;
     }
 
-    // Prevent duplicate registration
+    // ✅ Prevent duplicate registration
     const { data: existingReg } = await supabase
       .from("event_registrations")
       .select("registration_id")
@@ -124,20 +120,33 @@ const EventDetails: React.FC = () => {
       return;
     }
 
+    // ✅ Check event type before applying limits
+    if (
+      event.registration_type === "limited" &&
+      event.max_participants !== null &&
+      registeredCount >= event.max_participants
+    ) {
+      setToastMessage("Sorry, this event is full.");
+      return;
+    }
+
     setRegistering(true);
 
     const { error } = await supabase.from("event_registrations").insert([
       {
         event_id: event.event_id,
         user_id: user.id,
+        status:
+          event.registration_type === "open" ? "approved" : "pending", // auto-approve if open
       },
     ]);
 
     if (error) {
+      console.error("Registration error:", error.message);
       setToastMessage("Error registering for event.");
     } else {
       setToastMessage("Successfully registered!");
-      fetchEventDetails(); // refresh participant count + registration status
+      fetchEventDetails();
     }
 
     setRegistering(false);
@@ -156,7 +165,7 @@ const EventDetails: React.FC = () => {
       setToastMessage("Error canceling registration.");
     } else {
       setToastMessage("Registration canceled.");
-      fetchEventDetails(); // refresh participant count + registration status
+      fetchEventDetails();
     }
   };
 
@@ -184,31 +193,31 @@ const EventDetails: React.FC = () => {
                 </p>
                 <p>
                   <strong>Registration Type:</strong>{" "}
-                  {event.registration_type}
+                  {event.registration_type === "open"
+                    ? "Open to All"
+                    : "Limited"}
                 </p>
-                <p>
-                  <strong>Participants:</strong> {registeredCount} /{" "}
-                  {event.max_participants}
-                </p>
-                <p>
-                  <strong>Spots Left:</strong>{" "}
-                  {event.max_participants - registeredCount}
-                </p>
+                {event.registration_type === "limited" && (
+                  <>
+                    <p>
+                      <strong>Participants:</strong> {registeredCount} /{" "}
+                      {event.max_participants}
+                    </p>
+                    <p>
+                      <strong>Spots Left:</strong>{" "}
+                      {event.max_participants! - registeredCount}
+                    </p>
+                  </>
+                )}
               </IonText>
 
               {!alreadyRegistered ? (
                 <IonButton
                   expand="block"
                   onClick={handleRegister}
-                  disabled={
-                    registeredCount >= event.max_participants || registering
-                  }
+                  disabled={registering}
                 >
-                  {registeredCount >= event.max_participants
-                    ? "Event Full"
-                    : registering
-                    ? "Registering..."
-                    : "Register"}
+                  {registering ? "Registering..." : "Register"}
                 </IonButton>
               ) : (
                 <IonButton

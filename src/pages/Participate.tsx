@@ -34,7 +34,6 @@ interface Event {
   max_participants: number;
   created_by: string;
   created_at: string;
-  event_points?: number;
 }
 
 const ParticipateEvent: React.FC = () => {
@@ -45,7 +44,7 @@ const ParticipateEvent: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
-  const [points, setPoints] = useState<number>(50);
+  const [points, setPoints] = useState<number>(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string>("");
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -88,7 +87,7 @@ const ParticipateEvent: React.FC = () => {
         setEvent(data);
         checkRegistration(data.event_id);
         checkDailyPicture(data.event_id);
-        calculateDynamicPoints(data);
+        fetchUserPoints(data.event_id); // ✅ Fetch user's points
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -126,23 +125,27 @@ const ParticipateEvent: React.FC = () => {
     setHasTakenToday(!!hasTaken);
   };
 
-  // 🔹 Dynamic Points (starts 50, -1 every 2 min, min 25)
-  const calculateDynamicPoints = (ev: Event) => {
-    const startTime = new Date(ev.date).getTime();
-    const now = Date.now();
-    const diffMinutes = Math.floor((now - startTime) / (1000 * 60 * 2)); // every 2 min
-    const calculated = Math.max(50 - diffMinutes, 25);
-    setPoints(calculated);
-  };
+  // 🔹 Fetch user's total points for the event
+  const fetchUserPoints = async (eventId: number) => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("event_responses")
+        .select("points")
+        .eq("event_id", eventId)
+        .eq("user_id", userId);
 
-  useEffect(() => {
-    if (!event) return;
-    calculateDynamicPoints(event);
-    const interval = setInterval(() => {
-      calculateDynamicPoints(event);
-    }, 120000);
-    return () => clearInterval(interval);
-  }, [event]);
+      if (error) {
+        console.error("Error fetching user points:", error.message);
+        return;
+      }
+
+      const totalPoints = data?.reduce((sum, r) => sum + (r.points || 0), 0) || 0;
+      setPoints(totalPoints);
+    } catch (err) {
+      console.error("Fetch points error:", err);
+    }
+  };
 
   // 🔹 Countdown timer
   useEffect(() => {
@@ -177,6 +180,19 @@ const ParticipateEvent: React.FC = () => {
     if (userId) fetchEvent();
   }, [userId]);
 
+  // 🔹 Calculate points based on submission time
+  const calculatePoints = (eventStart: string) => {
+    const now = Date.now();
+    const start = new Date(eventStart).getTime();
+    const elapsedMinutes = (now - start) / 1000 / 60;
+
+    if (elapsedMinutes <= 10) return 50;
+    const extraMinutes = elapsedMinutes - 10;
+    const decrementSteps = Math.floor(extraMinutes / 2);
+    const points = 50 - decrementSteps * 5;
+    return points >= 25 ? points : 25;
+  };
+
   // 🔹 Take picture handler
   const handleTakePicture = () => {
     if (!isRegistered) {
@@ -204,15 +220,14 @@ const ParticipateEvent: React.FC = () => {
         .from("event_photos")
         .upload(fileName, file);
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError.message);
-        throw new Error("Upload failed. Check bucket policy or name.");
-      }
+      if (uploadError) throw new Error(uploadError.message);
 
       const { data: publicData } = supabase.storage
         .from("event_photos")
         .getPublicUrl(fileName);
       const photoUrl = publicData.publicUrl;
+
+      const earnedPoints = calculatePoints(event.date);
 
       const { error: insertError } = await supabase.from("event_responses").insert([
         {
@@ -220,15 +235,15 @@ const ParticipateEvent: React.FC = () => {
           user_id: userId,
           username,
           photo: photoUrl,
-          points,
+          points: earnedPoints,
         },
       ]);
 
       if (insertError) throw insertError;
 
       setHasTakenToday(true);
-      setToastMsg(`Photo submitted successfully! You earned ${points} points.`);
-      await fetchEvent(); // refresh event data
+      setToastMsg(`Photo submitted successfully! You earned ${earnedPoints} points.`);
+      fetchUserPoints(event.event_id); // update points
 
     } catch (err: any) {
       console.error("Error:", err.message);
