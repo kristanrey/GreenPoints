@@ -288,6 +288,7 @@ const UserDashboard: React.FC = () => {
                 <IonText className="stat-value">{treesPlanted}</IonText>
                 <IonText className="stat-label">Trees Planted</IonText>
               </div>
+              
             </div>
             <div className="stat-divider"></div>
             <div className="stat-item">

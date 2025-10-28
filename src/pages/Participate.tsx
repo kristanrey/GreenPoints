@@ -1,4 +1,3 @@
-// src/pages/ParticipateEvent.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
@@ -18,7 +17,10 @@ import {
   IonRefresher,
   IonRefresherContent,
   RefresherEventDetail,
+  IonIcon,
+  IonModal,
 } from "@ionic/react";
+import { leaf } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
 import "./css/Participate.css";
 
@@ -32,22 +34,42 @@ interface Event {
   max_participants: number;
   created_by: string;
   created_at: string;
+  event_points?: number;
 }
 
 const ParticipateEvent: React.FC = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [canParticipate, setCanParticipate] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
+  const [points, setPoints] = useState<number>(50);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("");
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [hasTakenToday, setHasTakenToday] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  // Fetch the next upcoming event
+  // 🔹 Fetch logged-in user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error("Error fetching user:", error.message);
+      else {
+        setUserId(data.user?.id || null);
+        setUsername(data.user?.email || "Unknown");
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // 🔹 Fetch upcoming event
   const fetchEvent = async () => {
     setLoading(true);
     try {
       const nowISO = new Date().toISOString();
-
       const { data, error } = await supabase
         .from("events")
         .select("*")
@@ -64,61 +86,71 @@ const ParticipateEvent: React.FC = () => {
         setEvent(null);
       } else {
         setEvent(data);
-
-        const now = Date.now();
-        const start = new Date(data.date).getTime();
-        const end = new Date(data.end_date).getTime();
-
-        if (now >= start && now <= end) {
-          setCanParticipate(true);
-          setTimeLeft(formatCountdown(end - now));
-        } else if (now < start) {
-          setCanParticipate(false);
-          setTimeLeft(formatCountdown(start - now));
-        } else {
-          setCanParticipate(false);
-          setTimeLeft("Event ended");
-        }
+        checkRegistration(data.event_id);
+        checkDailyPicture(data.event_id);
+        calculateDynamicPoints(data);
       }
     } catch (err) {
       console.error("Fetch error:", err);
-      setToastMsg("An error occurred while fetching event.");
+      setToastMsg("Error fetching event.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchEvent();
-  }, []);
-
-  // Countdown helper
-  const formatCountdown = (ms: number) => {
-    if (ms <= 0) return "Event ended";
-
-    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-    const minutes = Math.floor((ms / (1000 * 60)) % 60);
-    const seconds = Math.floor((ms / 1000) % 60);
-
-    let str = "";
-    if (days > 0) str += `${days}d `;
-    if (hours > 0 || days > 0) str += `${hours}h `;
-    if (minutes > 0 || hours > 0 || days > 0) str += `${minutes}m `;
-    str += `${seconds}s`;
-
-    return str;
+  // 🔹 Check if user registered for event
+  const checkRegistration = async (eventId: number) => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("event_registrations")
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) console.error("Registration check error:", error.message);
+    setIsRegistered(!!data);
   };
 
-  // Live countdown + participation logic
+  // 🔹 Check if user already took picture today
+  const checkDailyPicture = async (eventId: number) => {
+    if (!userId) return;
+    const today = new Date().toISOString().split("T")[0];
+    const { data } = await supabase
+      .from("event_responses")
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("user_id", userId);
+    const hasTaken = data?.some(
+      (r) => r.created_at && r.created_at.startsWith(today)
+    );
+    setHasTakenToday(!!hasTaken);
+  };
+
+  // 🔹 Dynamic Points (starts 50, -1 every 2 min, min 25)
+  const calculateDynamicPoints = (ev: Event) => {
+    const startTime = new Date(ev.date).getTime();
+    const now = Date.now();
+    const diffMinutes = Math.floor((now - startTime) / (1000 * 60 * 2)); // every 2 min
+    const calculated = Math.max(50 - diffMinutes, 25);
+    setPoints(calculated);
+  };
+
   useEffect(() => {
     if (!event) return;
+    calculateDynamicPoints(event);
+    const interval = setInterval(() => {
+      calculateDynamicPoints(event);
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [event]);
 
+  // 🔹 Countdown timer
+  useEffect(() => {
+    if (!event) return;
     const interval = setInterval(() => {
       const now = Date.now();
       const start = new Date(event.date).getTime();
       const end = new Date(event.end_date).getTime();
-
       if (now < start) {
         setCanParticipate(false);
         setTimeLeft(`Event starts in ${formatCountdown(start - now)}`);
@@ -130,20 +162,82 @@ const ParticipateEvent: React.FC = () => {
         setTimeLeft("Event ended");
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, [event]);
 
-  // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImagePreview(URL.createObjectURL(file));
-    setToastMsg("Image ready to upload!");
+  const formatCountdown = (ms: number) => {
+    if (ms <= 0) return "Event ended";
+    const h = Math.floor((ms / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((ms / (1000 * 60)) % 60);
+    const s = Math.floor((ms / 1000) % 60);
+    return `${h}h ${m}m ${s}s`;
   };
 
-  // Pull-to-refresh handler
+  useEffect(() => {
+    if (userId) fetchEvent();
+  }, [userId]);
+
+  // 🔹 Take picture handler
+  const handleTakePicture = () => {
+    if (!isRegistered) {
+      setShowRegisterModal(true);
+      return;
+    }
+    if (hasTakenToday) {
+      setToastMsg("You already submitted a picture today!");
+      return;
+    }
+    document.getElementById("imageUpload")?.click();
+  };
+
+  // 🔹 Upload image
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !event || !userId) return;
+
+    setUploading(true);
+    setImagePreview(URL.createObjectURL(file));
+    const fileName = `${userId}_${Date.now()}.jpg`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("event_photos")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError.message);
+        throw new Error("Upload failed. Check bucket policy or name.");
+      }
+
+      const { data: publicData } = supabase.storage
+        .from("event_photos")
+        .getPublicUrl(fileName);
+      const photoUrl = publicData.publicUrl;
+
+      const { error: insertError } = await supabase.from("event_responses").insert([
+        {
+          event_id: event.event_id,
+          user_id: userId,
+          username,
+          photo: photoUrl,
+          points,
+        },
+      ]);
+
+      if (insertError) throw insertError;
+
+      setHasTakenToday(true);
+      setToastMsg(`Photo submitted successfully! You earned ${points} points.`);
+      await fetchEvent(); // refresh event data
+
+    } catch (err: any) {
+      console.error("Error:", err.message);
+      setToastMsg(err.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
     await fetchEvent();
     event.detail.complete();
@@ -152,7 +246,7 @@ const ParticipateEvent: React.FC = () => {
   if (loading) {
     return (
       <IonPage>
-        <IonContent className="ion-padding">
+        <IonContent className="ion-padding ion-text-center">
           <IonSpinner />
         </IonContent>
       </IonPage>
@@ -167,11 +261,25 @@ const ParticipateEvent: React.FC = () => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
+      <IonContent className="ion-padding ion-text-center">
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
 
+        {/* 🌿 Points Card */}
+        <IonCard className="ion-margin-top" style={{ textAlign: "center" }}>
+          <IonCardContent>
+            <IonIcon icon={leaf} style={{ fontSize: "30px", color: "green" }} />
+            <IonText style={{ fontSize: "28px", fontWeight: "bold", color: "green" }}>
+              {points}
+            </IonText>
+            <IonText color="medium" style={{ display: "block" }}>
+              Event Points
+            </IonText>
+          </IonCardContent>
+        </IonCard>
+
+        {/* 🪴 Event Details */}
         {event ? (
           <IonCard>
             <IonCardHeader>
@@ -194,25 +302,29 @@ const ParticipateEvent: React.FC = () => {
         )}
 
         {timeLeft && (
-          <IonText color={canParticipate ? "success" : "danger"}>
-            ⏳ {timeLeft}
-          </IonText>
+          <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>
         )}
 
+        {/* 📸 Take Picture Button */}
         {canParticipate && event && (
           <>
-            <IonButton expand="block" className="ion-margin-top">
-              <label style={{ width: "100%" }}>
-                Take Picture
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  hidden
-                  onChange={handleImageUpload}
-                />
-              </label>
+            <IonButton
+              expand="block"
+              className="ion-margin-top"
+              onClick={handleTakePicture}
+              disabled={uploading}
+            >
+              {uploading ? <IonSpinner name="dots" /> : "Take Picture"}
             </IonButton>
+
+            <input
+              id="imageUpload"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handleImageUpload}
+            />
 
             {imagePreview && (
               <IonCard className="ion-margin-top">
@@ -221,6 +333,18 @@ const ParticipateEvent: React.FC = () => {
             )}
           </>
         )}
+
+        {/* 🔒 Register Modal */}
+        <IonModal isOpen={showRegisterModal} onDidDismiss={() => setShowRegisterModal(false)}>
+          <IonContent className="ion-padding ion-text-center">
+            <IonText color="danger" style={{ fontSize: "18px" }}>
+              Please register for this event first!
+            </IonText>
+            <IonButton expand="block" className="ion-margin-top" onClick={() => setShowRegisterModal(false)}>
+              Close
+            </IonButton>
+          </IonContent>
+        </IonModal>
 
         <IonToast
           isOpen={!!toastMsg}

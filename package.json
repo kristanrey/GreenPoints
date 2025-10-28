@@ -43,6 +43,7 @@
     "ionicons": "^7.4.0",
     "leaflet": "^1.9.4",
     "piexifjs": "^1.0.6",
+    "qrcode.react": "^4.2.0",
     "radar-sdk-js": "^4.5.7",
     "react": "19.0.0",
     "react-dom": "19.0.0",
