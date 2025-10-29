@@ -55,6 +55,7 @@ import UpdateReward from "./pages/UpdateReward";
 import Statistics from "./pages/Statistics";
 import Appointment from './pages/Appointment';
 import Approval from './pages/Approval';
+import AdminValidateEvent from './pages/AdminValidateEvent';
 
 
 
@@ -116,6 +117,7 @@ const App: React.FC = () => (
                        <Route path="/GreenPoints/statistics" component={Statistics} exact />
                         <Route path="/GreenPoints/appointment" component={Appointment} exact />
                        <Route path="/GreenPoints/approval" component={Approval} exact />
+                        <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
                         
 
 

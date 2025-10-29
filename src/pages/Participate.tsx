@@ -1,3 +1,4 @@
+// src/pages/ParticipateEvent.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
@@ -87,7 +88,7 @@ const ParticipateEvent: React.FC = () => {
         setEvent(data);
         checkRegistration(data.event_id);
         checkDailyPicture(data.event_id);
-        fetchUserPoints(data.event_id); // ✅ Fetch user's points
+        fetchUserPoints(data.event_id);
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -97,7 +98,7 @@ const ParticipateEvent: React.FC = () => {
     }
   };
 
-  // 🔹 Check if user registered for event
+  // 🔹 Check if user registered
   const checkRegistration = async (eventId: number) => {
     if (!userId) return;
     const { data, error } = await supabase
@@ -106,11 +107,11 @@ const ParticipateEvent: React.FC = () => {
       .eq("event_id", eventId)
       .eq("user_id", userId)
       .maybeSingle();
-    if (error) console.error("Registration check error:", error.message);
+    if (error) console.error(error.message);
     setIsRegistered(!!data);
   };
 
-  // 🔹 Check if user already took picture today
+  // 🔹 Check if user submitted today
   const checkDailyPicture = async (eventId: number) => {
     if (!userId) return;
     const today = new Date().toISOString().split("T")[0];
@@ -119,32 +120,22 @@ const ParticipateEvent: React.FC = () => {
       .select("*")
       .eq("event_id", eventId)
       .eq("user_id", userId);
-    const hasTaken = data?.some(
-      (r) => r.created_at && r.created_at.startsWith(today)
-    );
+    const hasTaken = data?.some((r) => r.created_at.startsWith(today));
     setHasTakenToday(!!hasTaken);
   };
 
-  // 🔹 Fetch user's total points for the event
+  // 🔹 Fetch approved points only
   const fetchUserPoints = async (eventId: number) => {
     if (!userId) return;
-    try {
-      const { data, error } = await supabase
-        .from("event_responses")
-        .select("points")
-        .eq("event_id", eventId)
-        .eq("user_id", userId);
-
-      if (error) {
-        console.error("Error fetching user points:", error.message);
-        return;
-      }
-
-      const totalPoints = data?.reduce((sum, r) => sum + (r.points || 0), 0) || 0;
-      setPoints(totalPoints);
-    } catch (err) {
-      console.error("Fetch points error:", err);
-    }
+    const { data, error } = await supabase
+      .from("event_responses")
+      .select("points")
+      .eq("event_id", eventId)
+      .eq("user_id", userId)
+      .eq("status", "approved");
+    if (error) return console.error(error.message);
+    const totalPoints = data?.reduce((sum, r) => sum + (r.points || 0), 0) || 0;
+    setPoints(totalPoints);
   };
 
   // 🔹 Countdown timer
@@ -169,11 +160,10 @@ const ParticipateEvent: React.FC = () => {
   }, [event]);
 
   const formatCountdown = (ms: number) => {
-    if (ms <= 0) return "Event ended";
     const h = Math.floor((ms / (1000 * 60 * 60)) % 24);
     const m = Math.floor((ms / (1000 * 60)) % 60);
     const s = Math.floor((ms / 1000) % 60);
-    return `${h}h ${m}m ${s}s`;
+    return ms <= 0 ? "Event ended" : `${h}h ${m}m ${s}s`;
   };
 
   useEffect(() => {
@@ -181,28 +171,23 @@ const ParticipateEvent: React.FC = () => {
   }, [userId]);
 
   // 🔹 Calculate points based on submission time
-  const calculatePoints = (eventStart: string) => {
-    const now = Date.now();
-    const start = new Date(eventStart).getTime();
-    const elapsedMinutes = (now - start) / 1000 / 60;
+  const calculatePoints = (submissionTime: Date) => {
+    if (!event) return 25;
+    const eventStart = new Date(event.date).getTime();
+    const submission = submissionTime.getTime();
+    const diffMinutes = (submission - eventStart) / 60000; // difference in minutes
 
-    if (elapsedMinutes <= 10) return 50;
-    const extraMinutes = elapsedMinutes - 10;
-    const decrementSteps = Math.floor(extraMinutes / 2);
-    const points = 50 - decrementSteps * 5;
-    return points >= 25 ? points : 25;
+    if (diffMinutes <= 10) return 50; // within first 10 minutes
+    let extra = Math.floor((diffMinutes - 10) / 2); // 1 point deducted every 2 min
+    let points = 50 - extra;
+    if (points < 25) points = 25; // minimum points
+    return points;
   };
 
-  // 🔹 Take picture handler
+  // 🔹 Take picture
   const handleTakePicture = () => {
-    if (!isRegistered) {
-      setShowRegisterModal(true);
-      return;
-    }
-    if (hasTakenToday) {
-      setToastMsg("You already submitted a picture today!");
-      return;
-    }
+    if (!isRegistered) return setShowRegisterModal(true);
+    if (hasTakenToday) return setToastMsg("You already submitted a picture today!");
     document.getElementById("imageUpload")?.click();
   };
 
@@ -216,10 +201,10 @@ const ParticipateEvent: React.FC = () => {
     const fileName = `${userId}_${Date.now()}.jpg`;
 
     try {
+      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("event_photos")
         .upload(fileName, file);
-
       if (uploadError) throw new Error(uploadError.message);
 
       const { data: publicData } = supabase.storage
@@ -227,26 +212,28 @@ const ParticipateEvent: React.FC = () => {
         .getPublicUrl(fileName);
       const photoUrl = publicData.publicUrl;
 
-      const earnedPoints = calculatePoints(event.date);
+      // Calculate dynamic points
+      const points = calculatePoints(new Date());
 
+      // Insert pending submission with points
       const { error: insertError } = await supabase.from("event_responses").insert([
         {
           event_id: event.event_id,
           user_id: userId,
           username,
           photo: photoUrl,
-          points: earnedPoints,
+          points,
+          status: "pending",
+          created_at: new Date().toISOString(),
         },
       ]);
-
       if (insertError) throw insertError;
 
       setHasTakenToday(true);
-      setToastMsg(`Photo submitted successfully! You earned ${earnedPoints} points.`);
-      fetchUserPoints(event.event_id); // update points
-
+      setToastMsg(`Photo submitted! You earned ${points} points (pending approval).`);
+      fetchUserPoints(event.event_id);
     } catch (err: any) {
-      console.error("Error:", err.message);
+      console.error(err.message);
       setToastMsg(err.message || "Upload failed.");
     } finally {
       setUploading(false);
@@ -258,7 +245,7 @@ const ParticipateEvent: React.FC = () => {
     event.detail.complete();
   };
 
-  if (loading) {
+  if (loading)
     return (
       <IonPage>
         <IonContent className="ion-padding ion-text-center">
@@ -266,7 +253,6 @@ const ParticipateEvent: React.FC = () => {
         </IonContent>
       </IonPage>
     );
-  }
 
   return (
     <IonPage>
@@ -289,13 +275,13 @@ const ParticipateEvent: React.FC = () => {
               {points}
             </IonText>
             <IonText color="medium" style={{ display: "block" }}>
-              Event Points
+              Approved Points
             </IonText>
           </IonCardContent>
         </IonCard>
 
         {/* 🪴 Event Details */}
-        {event ? (
+        {event && (
           <IonCard>
             <IonCardHeader>
               <IonCardTitle>{event.title}</IonCardTitle>
@@ -303,24 +289,16 @@ const ParticipateEvent: React.FC = () => {
             <IonCardContent>
               <IonText>{event.description}</IonText>
               <br />
-              <IonText color="medium">
-                📅 Start: {new Date(event.date).toLocaleString()}
-              </IonText>
+              <IonText color="medium">📅 Start: {new Date(event.date).toLocaleString()}</IonText>
               <br />
-              <IonText color="medium">
-                🕒 End: {new Date(event.end_date).toLocaleString()}
-              </IonText>
+              <IonText color="medium">🕒 End: {new Date(event.end_date).toLocaleString()}</IonText>
             </IonCardContent>
           </IonCard>
-        ) : (
-          <IonText color="medium">No upcoming events.</IonText>
         )}
 
-        {timeLeft && (
-          <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>
-        )}
+        {timeLeft && <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>}
 
-        {/* 📸 Take Picture Button */}
+        {/* 📸 Take Picture */}
         {canParticipate && event && (
           <>
             <IonButton
