@@ -23,6 +23,7 @@ import {
 } from "@ionic/react";
 import { leaf } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
+import { useHistory } from "react-router-dom"; // ⭐ Added
 import "./css/Participate.css";
 
 interface Event {
@@ -51,6 +52,8 @@ const ParticipateEvent: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [hasTakenToday, setHasTakenToday] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const history = useHistory(); // ⭐ Added for navigation
 
   // 🔹 Fetch logged-in user
   useEffect(() => {
@@ -175,12 +178,12 @@ const ParticipateEvent: React.FC = () => {
     if (!event) return 25;
     const eventStart = new Date(event.date).getTime();
     const submission = submissionTime.getTime();
-    const diffMinutes = (submission - eventStart) / 60000; // difference in minutes
+    const diffMinutes = (submission - eventStart) / 60000;
 
-    if (diffMinutes <= 10) return 50; // within first 10 minutes
-    let extra = Math.floor((diffMinutes - 10) / 2); // 1 point deducted every 2 min
+    if (diffMinutes <= 10) return 50;
+    let extra = Math.floor((diffMinutes - 10) / 2);
     let points = 50 - extra;
-    if (points < 25) points = 25; // minimum points
+    if (points < 25) points = 25;
     return points;
   };
 
@@ -201,7 +204,6 @@ const ParticipateEvent: React.FC = () => {
     const fileName = `${userId}_${Date.now()}.jpg`;
 
     try {
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("event_photos")
         .upload(fileName, file);
@@ -212,10 +214,8 @@ const ParticipateEvent: React.FC = () => {
         .getPublicUrl(fileName);
       const photoUrl = publicData.publicUrl;
 
-      // Calculate dynamic points
       const points = calculatePoints(new Date());
 
-      // Insert pending submission with points
       const { error: insertError } = await supabase.from("event_responses").insert([
         {
           event_id: event.event_id,
@@ -243,6 +243,12 @@ const ParticipateEvent: React.FC = () => {
   const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
     await fetchEvent();
     event.detail.complete();
+  };
+
+  // ⭐ Added navigation function
+  const goToEventPage = () => {
+    setShowRegisterModal(false);
+    history.push("/Event"); // ✅ Navigates to Event.tsx
   };
 
   if (loading)
@@ -289,14 +295,22 @@ const ParticipateEvent: React.FC = () => {
             <IonCardContent>
               <IonText>{event.description}</IonText>
               <br />
-              <IonText color="medium">📅 Start: {new Date(event.date).toLocaleString()}</IonText>
+              <IonText color="medium">
+                📅 Start: {new Date(event.date).toLocaleString()}
+              </IonText>
               <br />
-              <IonText color="medium">🕒 End: {new Date(event.end_date).toLocaleString()}</IonText>
+              <IonText color="medium">
+                🕒 End: {new Date(event.end_date).toLocaleString()}
+              </IonText>
             </IonCardContent>
           </IonCard>
         )}
 
-        {timeLeft && <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>}
+        {timeLeft && (
+          <IonText color={canParticipate ? "success" : "danger"}>
+            ⏳ {timeLeft}
+          </IonText>
+        )}
 
         {/* 📸 Take Picture */}
         {canParticipate && event && (
@@ -328,12 +342,31 @@ const ParticipateEvent: React.FC = () => {
         )}
 
         {/* 🔒 Register Modal */}
-        <IonModal isOpen={showRegisterModal} onDidDismiss={() => setShowRegisterModal(false)}>
+        <IonModal
+          isOpen={showRegisterModal}
+          onDidDismiss={() => setShowRegisterModal(false)}
+        >
           <IonContent className="ion-padding ion-text-center">
             <IonText color="danger" style={{ fontSize: "18px" }}>
               Please register for this event first!
             </IonText>
-            <IonButton expand="block" className="ion-margin-top" onClick={() => setShowRegisterModal(false)}>
+
+           <IonButton
+  expand="block"
+  className="ion-margin-top"
+  color="success"
+  href={`/GreenPoints/events/${event.event_id}`}
+>
+  Register
+</IonButton>
+
+
+
+            <IonButton
+              expand="block"
+              className="ion-margin-top"
+              onClick={() => setShowRegisterModal(false)}
+            >
               Close
             </IonButton>
           </IonContent>

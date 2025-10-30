@@ -56,7 +56,9 @@ import Statistics from "./pages/Statistics";
 import Appointment from './pages/Appointment';
 import Approval from './pages/Approval';
 import AdminValidateEvent from './pages/AdminValidateEvent';
-
+import EventDashboard from './pages/EventDashboard';
+import DataCharts from './pages/DataCharts';
+import DataTables from './pages/DataTables';
 
 
 
@@ -118,6 +120,9 @@ const App: React.FC = () => (
                         <Route path="/GreenPoints/appointment" component={Appointment} exact />
                        <Route path="/GreenPoints/approval" component={Approval} exact />
                         <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
+                         <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
+                         <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
+                         <Route path="/GreenPoints/datatables" component={DataTables} exact />
                         
 
 
