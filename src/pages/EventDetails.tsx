@@ -14,6 +14,9 @@ import {
   IonCardContent,
   IonToast,
   IonSpinner,
+  IonGrid,
+  IonRow,
+  IonCol,
 } from "@ionic/react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
@@ -42,7 +45,6 @@ const EventDetails: React.FC = () => {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [registrationId, setRegistrationId] = useState<number | null>(null);
 
-  // ✅ Fetch event details + participant count
   const fetchEventDetails = async () => {
     setLoading(true);
 
@@ -61,7 +63,6 @@ const EventDetails: React.FC = () => {
 
     setEvent(data);
 
-    // ✅ Fetch participant count
     const { count, error: countError } = await supabase
       .from("event_registrations")
       .select("*", { count: "exact", head: true })
@@ -71,7 +72,6 @@ const EventDetails: React.FC = () => {
       setRegisteredCount(count);
     }
 
-    // ✅ Check if user is already registered
     const user = (await supabase.auth.getUser()).data.user;
     if (user) {
       const { data: existingReg } = await supabase
@@ -97,7 +97,6 @@ const EventDetails: React.FC = () => {
     fetchEventDetails();
   }, [id]);
 
-  // ✅ Register logic with proper handling for "open" events
   const handleRegister = async () => {
     if (!event) return;
 
@@ -107,7 +106,6 @@ const EventDetails: React.FC = () => {
       return;
     }
 
-    // ✅ Prevent duplicate registration
     const { data: existingReg } = await supabase
       .from("event_registrations")
       .select("registration_id")
@@ -120,7 +118,6 @@ const EventDetails: React.FC = () => {
       return;
     }
 
-    // ✅ Check event type before applying limits
     if (
       event.registration_type === "limited" &&
       event.max_participants !== null &&
@@ -137,7 +134,7 @@ const EventDetails: React.FC = () => {
         event_id: event.event_id,
         user_id: user.id,
         status:
-          event.registration_type === "open" ? "approved" : "pending", // auto-approve if open
+          event.registration_type === "open" ? "approved" : "pending",
       },
     ]);
 
@@ -152,7 +149,6 @@ const EventDetails: React.FC = () => {
     setRegistering(false);
   };
 
-  // ✅ Cancel registration logic
   const handleCancel = async () => {
     if (!registrationId) return;
 
@@ -176,6 +172,7 @@ const EventDetails: React.FC = () => {
           <IonTitle>Event Details</IonTitle>
         </IonToolbar>
       </IonHeader>
+
       <IonContent className="ion-padding">
         {loading ? (
           <IonSpinner />
@@ -193,9 +190,7 @@ const EventDetails: React.FC = () => {
                 </p>
                 <p>
                   <strong>Registration Type:</strong>{" "}
-                  {event.registration_type === "open"
-                    ? "Open to All"
-                    : "Limited"}
+                  {event.registration_type === "open" ? "Open to All" : "Limited"}
                 </p>
                 {event.registration_type === "limited" && (
                   <>
@@ -211,11 +206,13 @@ const EventDetails: React.FC = () => {
                 )}
               </IonText>
 
+              {/* ✅ Buttons */}
               {!alreadyRegistered ? (
                 <IonButton
                   expand="block"
                   onClick={handleRegister}
                   disabled={registering}
+                  className="ion-margin-bottom"
                 >
                   {registering ? "Registering..." : "Register"}
                 </IonButton>
@@ -224,10 +221,16 @@ const EventDetails: React.FC = () => {
                   expand="block"
                   color="danger"
                   onClick={handleCancel}
+                  className="ion-margin-bottom"
                 >
                   Cancel Registration
                 </IonButton>
               )}
+
+              {/* ✅ Back button below */}
+              <IonButton expand="block" color="medium" href="/GreenPoints/participate">
+                Back
+              </IonButton>
             </IonCardContent>
           </IonCard>
         ) : (

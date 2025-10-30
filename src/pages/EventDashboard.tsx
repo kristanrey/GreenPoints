@@ -303,7 +303,11 @@ const Dashboard = () => {
         <Divider />
         <List>
           {navItems.map((text) => (
-            <ListItem button key={text}>
+            <ListItem
+              key={text}
+
+              component="div" // ✅ Fix: Required in TS
+            >
               <ListItemText primary={text} />
             </ListItem>
           ))}
