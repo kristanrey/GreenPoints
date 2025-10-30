@@ -23,7 +23,7 @@ import {
 } from "@ionic/react";
 import { leaf } from "ionicons/icons";
 import { supabase } from "../utils/supabaseClient";
-import { useHistory } from "react-router-dom"; // ⭐ Added
+import { useHistory } from "react-router-dom";
 import "./css/Participate.css";
 
 interface Event {
@@ -53,9 +53,9 @@ const ParticipateEvent: React.FC = () => {
   const [hasTakenToday, setHasTakenToday] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const history = useHistory(); // ⭐ Added for navigation
+  const history = useHistory();
 
-  // 🔹 Fetch logged-in user
+  // Fetch logged-in user
   useEffect(() => {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -68,7 +68,7 @@ const ParticipateEvent: React.FC = () => {
     fetchUser();
   }, []);
 
-  // 🔹 Fetch upcoming event
+  // Fetch upcoming event
   const fetchEvent = async () => {
     setLoading(true);
     try {
@@ -89,9 +89,11 @@ const ParticipateEvent: React.FC = () => {
         setEvent(null);
       } else {
         setEvent(data);
-        checkRegistration(data.event_id);
-        checkDailyPicture(data.event_id);
-        fetchUserPoints(data.event_id);
+        if (userId) {
+          checkRegistration(data.event_id);
+          checkDailyPicture(data.event_id);
+          fetchUserPoints(data.event_id);
+        }
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -101,7 +103,6 @@ const ParticipateEvent: React.FC = () => {
     }
   };
 
-  // 🔹 Check if user registered
   const checkRegistration = async (eventId: number) => {
     if (!userId) return;
     const { data, error } = await supabase
@@ -114,7 +115,6 @@ const ParticipateEvent: React.FC = () => {
     setIsRegistered(!!data);
   };
 
-  // 🔹 Check if user submitted today
   const checkDailyPicture = async (eventId: number) => {
     if (!userId) return;
     const today = new Date().toISOString().split("T")[0];
@@ -127,7 +127,6 @@ const ParticipateEvent: React.FC = () => {
     setHasTakenToday(!!hasTaken);
   };
 
-  // 🔹 Fetch approved points only
   const fetchUserPoints = async (eventId: number) => {
     if (!userId) return;
     const { data, error } = await supabase
@@ -141,7 +140,7 @@ const ParticipateEvent: React.FC = () => {
     setPoints(totalPoints);
   };
 
-  // 🔹 Countdown timer
+  // Countdown timer
   useEffect(() => {
     if (!event) return;
     const interval = setInterval(() => {
@@ -173,7 +172,6 @@ const ParticipateEvent: React.FC = () => {
     if (userId) fetchEvent();
   }, [userId]);
 
-  // 🔹 Calculate points based on submission time
   const calculatePoints = (submissionTime: Date) => {
     if (!event) return 25;
     const eventStart = new Date(event.date).getTime();
@@ -187,14 +185,12 @@ const ParticipateEvent: React.FC = () => {
     return points;
   };
 
-  // 🔹 Take picture
   const handleTakePicture = () => {
     if (!isRegistered) return setShowRegisterModal(true);
     if (hasTakenToday) return setToastMsg("You already submitted a picture today!");
     document.getElementById("imageUpload")?.click();
   };
 
-  // 🔹 Upload image
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !event || !userId) return;
@@ -245,13 +241,12 @@ const ParticipateEvent: React.FC = () => {
     event.detail.complete();
   };
 
-  // ⭐ Added navigation function
   const goToEventPage = () => {
     setShowRegisterModal(false);
-    history.push("/Event"); // ✅ Navigates to Event.tsx
+    if (event) history.push(`/GreenPoints/events/${event.event_id}`);
   };
 
-  if (loading)
+  if (loading || !event)
     return (
       <IonPage>
         <IonContent className="ion-padding ion-text-center">
@@ -264,7 +259,7 @@ const ParticipateEvent: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>{event?.title || "Event Details"}</IonTitle>
+          <IonTitle>{event.title}</IonTitle>
         </IonToolbar>
       </IonHeader>
 
@@ -273,7 +268,6 @@ const ParticipateEvent: React.FC = () => {
           <IonRefresherContent />
         </IonRefresher>
 
-        {/* 🌿 Points Card */}
         <IonCard className="ion-margin-top" style={{ textAlign: "center" }}>
           <IonCardContent>
             <IonIcon icon={leaf} style={{ fontSize: "30px", color: "green" }} />
@@ -286,34 +280,24 @@ const ParticipateEvent: React.FC = () => {
           </IonCardContent>
         </IonCard>
 
-        {/* 🪴 Event Details */}
-        {event && (
-          <IonCard>
-            <IonCardHeader>
-              <IonCardTitle>{event.title}</IonCardTitle>
-            </IonCardHeader>
-            <IonCardContent>
-              <IonText>{event.description}</IonText>
-              <br />
-              <IonText color="medium">
-                📅 Start: {new Date(event.date).toLocaleString()}
-              </IonText>
-              <br />
-              <IonText color="medium">
-                🕒 End: {new Date(event.end_date).toLocaleString()}
-              </IonText>
-            </IonCardContent>
-          </IonCard>
-        )}
+        <IonCard>
+          <IonCardHeader>
+            <IonCardTitle>{event.title}</IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent>
+            <IonText>{event.description}</IonText>
+            <br />
+            <IonText color="medium">📅 Start: {new Date(event.date).toLocaleString()}</IonText>
+            <br />
+            <IonText color="medium">🕒 End: {new Date(event.end_date).toLocaleString()}</IonText>
+          </IonCardContent>
+        </IonCard>
 
         {timeLeft && (
-          <IonText color={canParticipate ? "success" : "danger"}>
-            ⏳ {timeLeft}
-          </IonText>
+          <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>
         )}
 
-        {/* 📸 Take Picture */}
-        {canParticipate && event && (
+        {canParticipate && (
           <>
             <IonButton
               expand="block"
@@ -341,35 +325,29 @@ const ParticipateEvent: React.FC = () => {
           </>
         )}
 
-        {/* 🔒 Register Modal */}
         <IonModal
           isOpen={showRegisterModal}
           onDidDismiss={() => setShowRegisterModal(false)}
         >
-          <IonContent className="ion-padding ion-text-center">
-            <IonText color="danger" style={{ fontSize: "18px" }}>
-              Please register for this event first!
-            </IonText>
+          {event && (
+            <IonContent className="ion-padding ion-text-center">
+              <IonText color="danger" style={{ fontSize: "18px" }}>
+                Please register for this event first!
+              </IonText>
 
-           <IonButton
-  expand="block"
-  className="ion-margin-top"
-  color="success"
-  href={`/GreenPoints/events/${event.event_id}`}
->
-  Register
-</IonButton>
+              <IonButton expand="block" className="ion-margin-top" color="success" onClick={goToEventPage}>
+                Register
+              </IonButton>
 
-
-
-            <IonButton
-              expand="block"
-              className="ion-margin-top"
-              onClick={() => setShowRegisterModal(false)}
-            >
-              Close
-            </IonButton>
-          </IonContent>
+              <IonButton
+                expand="block"
+                className="ion-margin-top"
+                onClick={() => setShowRegisterModal(false)}
+              >
+                Close
+              </IonButton>
+            </IonContent>
+          )}
         </IonModal>
 
         <IonToast
