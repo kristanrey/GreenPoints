@@ -1,5 +1,5 @@
-// EventDashboard.tsx
-import { useEffect, useState } from "react";
+// src/pages/EventDashboard.tsx
+import { JSX, useEffect, useState } from "react";
 import {
   Box,
   Card,
@@ -15,12 +15,15 @@ import {
   Drawer,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   AppBar,
   Toolbar,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import { supabase } from "../utils/supabaseClient"; // ✅ now used
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 import {
   LineChart,
@@ -90,8 +93,6 @@ const collegeIcons: Record<string, L.Icon> = {
 
 interface AlumniData {
   stats: {
-    newAlumni: number;
-    activeAlumni: number;
     inactiveAlumni: number;
     totalAlumni: number;
   };
@@ -112,7 +113,7 @@ interface AlumniData {
 
 interface StatCardProps {
   title: string;
-  value: number | string;
+  value: string | number | JSX.Element; // allow spinner
   color: "primary" | "secondary" | "error" | "warning" | "info" | "success";
 }
 
@@ -129,12 +130,7 @@ function ResetViewControl({ center, zoom }: { center: [number, number]; zoom: nu
         <IconButton
           onClick={handleClick}
           size="small"
-          sx={{
-            backgroundColor: "white",
-            "&:hover": { backgroundColor: "#f5f5f5" },
-            padding: "4px",
-            margin: "2px",
-          }}
+          sx={{ backgroundColor: "white", "&:hover": { backgroundColor: "#f5f5f5" }, padding: "4px", margin: "2px" }}
           title="Reset view"
         >
           <GpsFixedIcon fontSize="small" />
@@ -168,12 +164,7 @@ function LocateControl() {
         <IconButton
           onClick={handleLocate}
           size="small"
-          sx={{
-            backgroundColor: "white",
-            "&:hover": { backgroundColor: "#f5f5f5" },
-            padding: "4px",
-            margin: "2px",
-          }}
+          sx={{ backgroundColor: "white", "&:hover": { backgroundColor: "#f5f5f5" }, padding: "4px", margin: "2px" }}
           title="Find my location"
         >
           <GpsFixedIcon fontSize="small" />
@@ -187,14 +178,7 @@ function LocateControl() {
 const StatCard = ({ title, value, color }: StatCardProps) => {
   const theme = useTheme();
   return (
-    <Card
-      sx={{
-        minHeight: 120,
-        backgroundColor: theme.palette[color].main,
-        color: theme.palette[color].contrastText,
-        boxShadow: 3,
-      }}
-    >
+    <Card sx={{ minHeight: 120, backgroundColor: theme.palette[color].main, color: theme.palette[color].contrastText, boxShadow: 3 }}>
       <CardContent>
         <Typography variant="subtitle1">{title}</Typography>
         <Typography variant="h5" fontWeight="bold">
@@ -210,18 +194,29 @@ const Dashboard = () => {
   const theme = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collegeFilter, setCollegeFilter] = useState("all");
+
+  const [eventsCount, setEventsCount] = useState<number | null>(null);
+  const [registrationsCount, setRegistrationsCount] = useState<number | null>(null);
   const [alumniData, setAlumniData] = useState<AlumniData | null>(null);
+
   const mapCenter: [number, number] = [12.988438, 121.785126];
   const initialZoom = 5;
 
+  // Fetch counts from Supabase
+  useEffect(() => {
+    async function fetchCounts() {
+      const { count: eventsCount } = await supabase.from("events").select("*", { count: "exact" });
+      const { count: registrationsCount } = await supabase.from("event_registrations").select("*", { count: "exact" });
+      setEventsCount(eventsCount || 0);
+      setRegistrationsCount(registrationsCount || 0);
+    }
+    fetchCounts();
+  }, []);
+
+  // Mock alumni data for chart/map
   useEffect(() => {
     const mockData: AlumniData = {
-      stats: {
-        newAlumni: 42,
-        activeAlumni: 1280,
-        inactiveAlumni: 312,
-        totalAlumni: 1634,
-      },
+      stats: { inactiveAlumni: 312, totalAlumni: 1634 },
       activity: [
         { month: "Jan", newAlumni: 5, activeAlumni: 1200, inactiveAlumni: 300 },
         { month: "Feb", newAlumni: 8, activeAlumni: 1220, inactiveAlumni: 290 },
@@ -230,34 +225,10 @@ const Dashboard = () => {
         { month: "May", newAlumni: 7, activeAlumni: 1280, inactiveAlumni: 312 },
       ],
       locations: [
-        {
-          id: 1,
-          name: "John Doe",
-          position: [8.3593168, 124.8683004],
-          college: "IBM",
-          status: "active",
-        },
-        {
-          id: 2,
-          name: "Jane Smith",
-          position: [8.3590237, 124.8690283],
-          college: "ICS",
-          status: "active",
-        },
-        {
-          id: 3,
-          name: "Bob Johnson",
-          position: [8.3599979, 124.8673158],
-          college: "ITE",
-          status: "inactive",
-        },
-        {
-          id: 4,
-          name: "Alice Brown",
-          position: [8.3593168, 124.8683004],
-          college: "IBM",
-          status: "new",
-        },
+        { id: 1, name: "John Doe", position: [8.3593168, 124.8683004], college: "IBM", status: "active" },
+        { id: 2, name: "Jane Smith", position: [8.3590237, 124.8690283], college: "ICS", status: "active" },
+        { id: 3, name: "Bob Johnson", position: [8.3599979, 124.8673158], college: "ITE", status: "inactive" },
+        { id: 4, name: "Alice Brown", position: [8.3593168, 124.8683004], college: "IBM", status: "new" },
       ],
     };
     setAlumniData(mockData);
@@ -267,50 +238,50 @@ const Dashboard = () => {
     setCollegeFilter(event.target.value as string);
   };
 
-  const filteredLocations =
-    alumniData?.locations.filter(
-      (l) => collegeFilter === "all" || l.college === collegeFilter
-    ) || [];
+  const filteredLocations = alumniData?.locations.filter((l) => collegeFilter === "all" || l.college === collegeFilter) || [];
 
   const stats: StatCardProps[] = [
-    { title: "Number of Events", value: alumniData?.stats.newAlumni || 0, color: "primary" },
-    { title: "Number of Users", value: alumniData?.stats.activeAlumni || 0, color: "success" },
+    { title: "Number of Events", value: eventsCount === null ? <CircularProgress size={20} color="inherit" /> : eventsCount, color: "primary" },
+    { title: "Number of Users", value: registrationsCount === null ? <CircularProgress size={20} color="inherit" /> : registrationsCount, color: "success" },
     { title: "Inactive Planters", value: alumniData?.stats.inactiveAlumni || 0, color: "warning" },
     { title: "Total Planters", value: alumniData?.stats.totalAlumni || 0, color: "info" },
   ];
 
-  const navItems = ["Dashboard", "Events", "Reports", "Settings"];
-
   return (
     <Box sx={{ display: "flex" }}>
-      {/* Right-side Sidebar Drawer */}
+      {/* Drawer */}
       <Drawer
         anchor="right"
         variant="temporary"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        sx={{
-          "& .MuiDrawer-paper": {
-            width: 240,
-            boxSizing: "border-box",
-            backgroundColor: theme.palette.background.paper,
-          },
-        }}
+        sx={{ "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box", backgroundColor: theme.palette.background.paper } }}
       >
         <Box sx={{ p: 2, textAlign: "center" }}>
           <Typography variant="h6">🎓 Alumni Portal</Typography>
         </Box>
         <Divider />
         <List>
-          {navItems.map((text) => (
-            <ListItem
-              key={text}
-
-              component="div" // ✅ Fix: Required in TS
-            >
-              <ListItemText primary={text} />
-            </ListItem>
-          ))}
+          <ListItem disablePadding>
+            <ListItemButton component="a" href="/dashboard">
+              <ListItemText primary="Dashboard" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/adminvalidateevent">
+              <ListItemText primary="Events" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton component="a" href="/reports">
+              <ListItemText primary="Reports" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton component="a" href="/settings">
+              <ListItemText primary="Settings" />
+            </ListItemButton>
+          </ListItem>
         </List>
       </Drawer>
 
@@ -325,30 +296,53 @@ const Dashboard = () => {
           </Toolbar>
         </AppBar>
 
-        {/* Content Section */}
         <Box sx={{ p: 2 }}>
-          {/* Stats Section */}
-          <Box
-            display="grid"
-            gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
-            gap={2}
-            mb={3}
-          >
+          {/* Stats */}
+          <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap={2} mb={3}>
             {stats.map((s) => (
               <StatCard key={s.title} {...s} />
             ))}
           </Box>
 
-          {/* Charts + Map Section */}
-          <Box
-            display="grid"
-            gridTemplateColumns={{ xs: "1fr", md: "40% 60%" }}
-            gap={2}
-          >
+          {/* Charts + Map */}
+          <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "40% 60%" }} gap={2}>
             {/* Chart */}
-          
+            <Card sx={{ p: 2, boxShadow: 3 }}>
+              <Typography variant="subtitle1" mb={1}>
+                Monthly Activity
+              </Typography>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={alumniData?.activity}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="newAlumni" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="activeAlumni" stroke="#82ca9d" />
+                  <Line type="monotone" dataKey="inactiveAlumni" stroke="#ffc658" />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+
             {/* Map */}
-          
+            <Card sx={{ height: 300, boxShadow: 3 }}>
+              <MapContainer center={mapCenter} zoom={initialZoom} style={{ height: "100%", width: "100%" }}>
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {filteredLocations.map((loc) => (
+                  <Marker key={loc.id} position={loc.position} icon={collegeIcons[loc.college] || collegeIcons["Other"]}>
+                    <Popup>
+                      {loc.name} - {loc.college} ({loc.status})
+                    </Popup>
+                  </Marker>
+                ))}
+                <ResetViewControl center={mapCenter} zoom={initialZoom} />
+                <LocateControl />
+              </MapContainer>
+            </Card>
           </Box>
         </Box>
       </Box>
