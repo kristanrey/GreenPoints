@@ -258,7 +258,7 @@ const Dashboard = () => {
         sx={{ "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box", backgroundColor: theme.palette.background.paper } }}
       >
         <Box sx={{ p: 2, textAlign: "center" }}>
-          <Typography variant="h6">🎓 Alumni Portal</Typography>
+          <Typography variant="h6">🎓 Admin Portal</Typography>
         </Box>
         <Divider />
         <List>
@@ -273,8 +273,8 @@ const Dashboard = () => {
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
-            <ListItemButton component="a" href="/reports">
-              <ListItemText primary="Reports" />
+            <ListItemButton component="a" href="/GreenPoints/adminmanage">
+              <ListItemText primary="Manage" />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
@@ -289,7 +289,7 @@ const Dashboard = () => {
       <Box sx={{ flexGrow: 1 }}>
         <AppBar position="static" color="primary">
           <Toolbar sx={{ justifyContent: "space-between" }}>
-            <Typography variant="h6">Event Dashboard</Typography>
+            <Typography variant="h6">Admin Event Dashboard</Typography>
             <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
               <MenuIcon />
             </IconButton>
