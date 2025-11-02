@@ -242,7 +242,7 @@ const Dashboard = () => {
 
   const stats: StatCardProps[] = [
     { title: "Number of Events", value: eventsCount === null ? <CircularProgress size={20} color="inherit" /> : eventsCount, color: "primary" },
-    { title: "Number of Users", value: registrationsCount === null ? <CircularProgress size={20} color="inherit" /> : registrationsCount, color: "success" },
+    { title: "Number of Participants", value: registrationsCount === null ? <CircularProgress size={20} color="inherit" /> : registrationsCount, color: "success" },
     { title: "Inactive Planters", value: alumniData?.stats.inactiveAlumni || 0, color: "warning" },
     { title: "Total Planters", value: alumniData?.stats.totalAlumni || 0, color: "info" },
   ];
