@@ -36,6 +36,7 @@ interface Event {
   max_participants: number;
   created_by: string;
   created_at: string;
+  image_url?: string | null;
 }
 
 const ParticipateEvent: React.FC = () => {
@@ -55,7 +56,7 @@ const ParticipateEvent: React.FC = () => {
 
   const history = useHistory();
 
-  // Fetch logged-in user
+  // ✅ Fetch logged-in user
   useEffect(() => {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -68,7 +69,7 @@ const ParticipateEvent: React.FC = () => {
     fetchUser();
   }, []);
 
-  // Fetch upcoming event
+  // ✅ Fetch the next upcoming event
   const fetchEvent = async () => {
     setLoading(true);
     try {
@@ -140,7 +141,7 @@ const ParticipateEvent: React.FC = () => {
     setPoints(totalPoints);
   };
 
-  // Countdown timer
+  // ✅ Countdown logic
   useEffect(() => {
     if (!event) return;
     const interval = setInterval(() => {
@@ -268,6 +269,7 @@ const ParticipateEvent: React.FC = () => {
           <IonRefresherContent />
         </IonRefresher>
 
+        {/* ✅ Points Card */}
         <IonCard className="ion-margin-top" style={{ textAlign: "center" }}>
           <IonCardContent>
             <IonIcon icon={leaf} style={{ fontSize: "30px", color: "green" }} />
@@ -280,21 +282,46 @@ const ParticipateEvent: React.FC = () => {
           </IonCardContent>
         </IonCard>
 
+        {/* ✅ Event Info */}
         <IonCard>
           <IonCardHeader>
             <IonCardTitle>{event.title}</IonCardTitle>
           </IonCardHeader>
           <IonCardContent>
+            {/* ✅ Small, centered image */}
+            {event.image_url && (
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <IonImg
+                  src={event.image_url}
+                  alt="Event image"
+                  style={{
+                    width: "180px",
+                    height: "auto",
+                    borderRadius: "10px",
+                    marginBottom: "12px",
+                    objectFit: "cover",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                  }}
+                />
+              </div>
+            )}
+
             <IonText>{event.description}</IonText>
             <br />
-            <IonText color="medium">📅 Start: {new Date(event.date).toLocaleString()}</IonText>
+            <IonText color="medium">
+              📅 Start: {new Date(event.date).toLocaleString()}
+            </IonText>
             <br />
-            <IonText color="medium">🕒 End: {new Date(event.end_date).toLocaleString()}</IonText>
+            <IonText color="medium">
+              🕒 End: {new Date(event.end_date).toLocaleString()}
+            </IonText>
           </IonCardContent>
         </IonCard>
 
         {timeLeft && (
-          <IonText color={canParticipate ? "success" : "danger"}>⏳ {timeLeft}</IonText>
+          <IonText color={canParticipate ? "success" : "danger"}>
+            ⏳ {timeLeft}
+          </IonText>
         )}
 
         {canParticipate && (
@@ -325,6 +352,7 @@ const ParticipateEvent: React.FC = () => {
           </>
         )}
 
+        {/* Registration Modal */}
         <IonModal
           isOpen={showRegisterModal}
           onDidDismiss={() => setShowRegisterModal(false)}
@@ -335,7 +363,12 @@ const ParticipateEvent: React.FC = () => {
                 Please register for this event first!
               </IonText>
 
-              <IonButton expand="block" className="ion-margin-top" color="success" onClick={goToEventPage}>
+              <IonButton
+                expand="block"
+                className="ion-margin-top"
+                color="success"
+                onClick={goToEventPage}
+              >
                 Register
               </IonButton>
 

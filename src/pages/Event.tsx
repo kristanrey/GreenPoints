@@ -1,4 +1,3 @@
-// src/pages/AdminEvents.tsx
 import React, { useEffect, useState } from "react";
 import {
   IonPage,
@@ -25,7 +24,12 @@ import {
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
 import "./Event.css";
-import { checkmarkCircleOutline, closeCircleOutline, trashOutline, createOutline } from "ionicons/icons";
+import {
+  checkmarkCircleOutline,
+  closeCircleOutline,
+  trashOutline,
+  createOutline,
+} from "ionicons/icons";
 
 interface Validator {
   validator_id: string;
@@ -38,17 +42,20 @@ const AdminEvents: React.FC = () => {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [date, setDate] = useState("");
-  const [endDate, setEndDate] = useState(""); // New end_date state
+  const [endDate, setEndDate] = useState("");
   const [registrationType, setRegistrationType] = useState<"open" | "limited">("open");
   const [max, setMax] = useState<number | undefined>();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [toastMsg, setToastMsg] = useState("");
   const [validator, setValidator] = useState<Validator | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
+  // ✅ Fetch validator info
   const fetchValidator = async () => {
     const { data: user } = await supabase.auth.getUser();
-    if (!user) {
+    if (!user || !user.user?.email) {
       setToastMsg("No logged-in user found. Please log in.");
       return;
     }
@@ -56,7 +63,7 @@ const AdminEvents: React.FC = () => {
     const { data, error } = await supabase
       .from("validators")
       .select("*")
-      .eq("email", user.user?.email)
+      .eq("email", user.user.email)
       .single();
 
     if (error) {
@@ -67,6 +74,7 @@ const AdminEvents: React.FC = () => {
     setValidator(data);
   };
 
+  // ✅ Fetch all events
   const fetchEvents = async () => {
     const { data, error } = await supabase
       .from("events")
@@ -80,10 +88,9 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  // ✅ Fetch event registrations
   const fetchRegistrations = async () => {
-    const { data, error } = await supabase
-      .from("event_registrations")
-      .select("*");
+    const { data, error } = await supabase.from("event_registrations").select("*");
     if (error) {
       console.error("Error fetching registrations:", error.message);
       setToastMsg("Failed to fetch registrations");
@@ -92,16 +99,53 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  // ✅ Reset form
   const resetForm = () => {
     setTitle("");
     setDesc("");
     setDate("");
-    setEndDate(""); // Reset end_date
+    setEndDate("");
     setMax(undefined);
     setRegistrationType("open");
     setEditingEventId(null);
+    setImageFile(null);
   };
 
+  // ✅ Upload image to Supabase Storage
+  const uploadImage = async (file: File) => {
+    try {
+      setUploading(true);
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("greenpoints_event")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error("Image upload error:", uploadError.message);
+        setToastMsg("Failed to upload image");
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from("greenpoints_event")
+        .getPublicUrl(filePath);
+
+      const imageUrl = data?.publicUrl || null;
+      console.log("✅ Uploaded Image URL:", imageUrl);
+      return imageUrl;
+    } catch (err) {
+      console.error("Unexpected upload error:", err);
+      setToastMsg("Image upload failed");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ✅ Create or Update Event
   const createOrUpdateEvent = async () => {
     if (!validator) {
       setToastMsg("Validator not loaded. Please wait or log in.");
@@ -118,13 +162,22 @@ const AdminEvents: React.FC = () => {
       return;
     }
 
-    // Convert to proper datetime format for Supabase
+    let imageUrl = null;
+
+    if (imageFile) {
+      imageUrl = await uploadImage(imageFile);
+      if (!imageUrl) {
+        setToastMsg("Image upload failed. Please try again.");
+        return;
+      }
+    }
+
     const formatDateTime = (d: string) => {
       const localDate = new Date(d);
       return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")} ${String(localDate.getHours()).padStart(2, "0")}:${String(localDate.getMinutes()).padStart(2, "0")}:00`;
     };
 
-    const eventData = {
+    const eventData: any = {
       title: title.trim(),
       description: desc.trim(),
       date: formatDateTime(date),
@@ -134,6 +187,8 @@ const AdminEvents: React.FC = () => {
       created_by: validator.validator_id,
       created_at: new Date().toISOString(),
     };
+
+    if (imageUrl) eventData.image_url = imageUrl;
 
     if (editingEventId) {
       const { error } = await supabase
@@ -161,6 +216,7 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  // ✅ Delete Event
   const deleteEvent = async (eventId: number) => {
     const { error } = await supabase.from("events").delete().eq("event_id", eventId);
     if (error) setToastMsg("Failed to delete event");
@@ -170,13 +226,15 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  // ✅ Start editing existing event
   const startEditing = (ev: any) => {
     setEditingEventId(ev.event_id);
     setTitle(ev.title);
     setDesc(ev.description);
-
-    // Convert dates for datetime-local input
-    const toLocalInput = (d: string) => new Date(new Date(d).getTime() - new Date(d).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const toLocalInput = (d: string) =>
+      new Date(new Date(d).getTime() - new Date(d).getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
     setDate(toLocalInput(ev.date));
     setEndDate(toLocalInput(ev.end_date));
     setRegistrationType(ev.registration_type);
@@ -184,13 +242,19 @@ const AdminEvents: React.FC = () => {
   };
 
   const approveUser = async (regId: number) => {
-    const { error } = await supabase.from("event_registrations").update({ status: "approved" }).eq("registration_id", regId);
+    const { error } = await supabase
+      .from("event_registrations")
+      .update({ status: "approved" })
+      .eq("registration_id", regId);
     if (error) setToastMsg("Failed to approve registration");
     else fetchRegistrations();
   };
 
   const rejectUser = async (regId: number) => {
-    const { error } = await supabase.from("event_registrations").update({ status: "rejected" }).eq("registration_id", regId);
+    const { error } = await supabase
+      .from("event_registrations")
+      .update({ status: "rejected" })
+      .eq("registration_id", regId);
     if (error) setToastMsg("Failed to reject registration");
     else fetchRegistrations();
   };
@@ -218,6 +282,23 @@ const AdminEvents: React.FC = () => {
           <IonCardContent>
             <IonInput placeholder="Title" value={title} onIonChange={(e) => setTitle(e.detail.value!)} className="ion-margin-bottom" />
             <IonInput placeholder="Description" value={desc} onIonChange={(e) => setDesc(e.detail.value!)} className="ion-margin-bottom" />
+
+            {/* Image Upload */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="ion-margin-bottom"
+            />
+
+            {imageFile && (
+              <img
+                src={URL.createObjectURL(imageFile)}
+                alt="preview"
+                style={{ width: "100%", borderRadius: "10px", marginBottom: "10px" }}
+              />
+            )}
+
             <IonInput type="datetime-local" placeholder="Start Date" value={date} onIonChange={(e) => setDate(e.detail.value!)} className="ion-margin-bottom" />
             <IonInput type="datetime-local" placeholder="End Date" value={endDate} onIonChange={(e) => setEndDate(e.detail.value!)} className="ion-margin-bottom" />
 
@@ -236,8 +317,8 @@ const AdminEvents: React.FC = () => {
               />
             )}
 
-            <IonButton expand="block" color={editingEventId ? "warning" : "success"} onClick={createOrUpdateEvent}>
-              {editingEventId ? "Update Event" : "Create Event"}
+            <IonButton expand="block" color={editingEventId ? "warning" : "success"} onClick={createOrUpdateEvent} disabled={uploading}>
+              {uploading ? "Uploading..." : editingEventId ? "Update Event" : "Create Event"}
             </IonButton>
             {editingEventId && (
               <IonButton expand="block" color="medium" onClick={resetForm} className="ion-margin-top">
@@ -261,9 +342,19 @@ const AdminEvents: React.FC = () => {
                 </IonLabel>
               </IonItem>
               <div className="ion-padding" slot="content">
+                {ev.image_url && (
+                  <img
+                    src={ev.image_url}
+                    alt={ev.title}
+                    style={{ width: "100%", borderRadius: "10px", marginBottom: "10px" }}
+                  />
+                )}
                 <p>{ev.description}</p>
                 <p>
-                  <strong>Type:</strong> {ev.registration_type === "limited" ? `Limited (${ev.max_participants} max)` : "Open to All"}
+                  <strong>Type:</strong>{" "}
+                  {ev.registration_type === "limited"
+                    ? `Limited (${ev.max_participants} max)`
+                    : "Open to All"}
                 </p>
 
                 <IonText>
@@ -279,10 +370,20 @@ const AdminEvents: React.FC = () => {
                         </IonLabel>
                         {r.status === "pending" && (
                           <>
-                            <IonButton fill="clear" color="success" onClick={() => approveUser(r.registration_id)} size="small">
+                            <IonButton
+                              fill="clear"
+                              color="success"
+                              onClick={() => approveUser(r.registration_id)}
+                              size="small"
+                            >
                               <IonIcon icon={checkmarkCircleOutline} />
                             </IonButton>
-                            <IonButton fill="clear" color="danger" onClick={() => rejectUser(r.registration_id)} size="small">
+                            <IonButton
+                              fill="clear"
+                              color="danger"
+                              onClick={() => rejectUser(r.registration_id)}
+                              size="small"
+                            >
                               <IonIcon icon={closeCircleOutline} />
                             </IonButton>
                           </>
@@ -292,10 +393,19 @@ const AdminEvents: React.FC = () => {
                 </IonList>
 
                 {/* Event Actions */}
-                <IonButton fill="outline" color="warning" onClick={() => startEditing(ev)} className="ion-margin-end">
+                <IonButton
+                  fill="outline"
+                  color="warning"
+                  onClick={() => startEditing(ev)}
+                  className="ion-margin-end"
+                >
                   <IonIcon icon={createOutline} /> Update
                 </IonButton>
-                <IonButton fill="outline" color="danger" onClick={() => deleteEvent(ev.event_id)}>
+                <IonButton
+                  fill="outline"
+                  color="danger"
+                  onClick={() => deleteEvent(ev.event_id)}
+                >
                   <IonIcon icon={trashOutline} /> Delete
                 </IonButton>
               </div>
@@ -303,7 +413,12 @@ const AdminEvents: React.FC = () => {
           ))}
         </IonAccordionGroup>
 
-        <IonToast isOpen={!!toastMsg} message={toastMsg} duration={2000} onDidDismiss={() => setToastMsg("")} />
+        <IonToast
+          isOpen={!!toastMsg}
+          message={toastMsg}
+          duration={2000}
+          onDidDismiss={() => setToastMsg("")}
+        />
       </IonContent>
     </IonPage>
   );

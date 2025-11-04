@@ -173,7 +173,7 @@ const ValidatePage: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonButton slot="start" color="medium" routerLink="/GreenPoints/validators">
+          <IonButton slot="start" color="medium" routerLink="/GreenPoints/eventdashboard">
             ← Go Back
           </IonButton>
           <IonTitle>Validate Trees</IonTitle>

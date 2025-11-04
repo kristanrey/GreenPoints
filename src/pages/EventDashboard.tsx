@@ -291,6 +291,16 @@ const Dashboard = () => {
               <ListItemText primary="Dashboard" />
             </ListItemButton>
           </ListItem>
+           <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/event">
+              <ListItemText primary="Create Event" />
+            </ListItemButton>
+          </ListItem>
+            <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/validate">
+              <ListItemText primary="Validate" />
+            </ListItemButton>
+          </ListItem>
           <ListItem disablePadding>
             <ListItemButton component="a" href="/GreenPoints/adminvalidateevent">
               <ListItemText primary="Events" />
@@ -299,6 +309,26 @@ const Dashboard = () => {
           <ListItem disablePadding>
             <ListItemButton component="a" href="/GreenPoints/adminmanage">
               <ListItemText primary="Manage" />
+            </ListItemButton>
+          </ListItem>
+           <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/leaderboard">
+              <ListItemText primary="Leaderboards" />
+            </ListItemButton>
+          </ListItem>
+           <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/feedback">
+              <ListItemText primary="Feedback" />
+            </ListItemButton>
+          </ListItem>
+             <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/statistics">
+              <ListItemText primary="Statistics" />
+            </ListItemButton>
+          </ListItem>
+           <ListItem disablePadding>
+            <ListItemButton component="a" href="/GreenPoints/news">
+              <ListItemText primary="News" />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
@@ -361,7 +391,7 @@ const Dashboard = () => {
             {/* Participant List */}
             <Card sx={{ p: 2, boxShadow: 3 }}>
               <Typography variant="subtitle1" mb={1}>
-                List of Responses
+                Event Response
               </Typography>
 
               <FormControl fullWidth size="small" sx={{ mb: 2 }}>
