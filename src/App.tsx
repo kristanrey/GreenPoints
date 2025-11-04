@@ -72,6 +72,7 @@ import DataTables from './pages/DataTables';
 
 
 
+
 setupIonicReact();
 
 const App: React.FC = () => (
@@ -123,7 +124,7 @@ const App: React.FC = () => (
                          <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
                          <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
                          <Route path="/GreenPoints/datatables" component={DataTables} exact />
-                        
+                      
 
 
 
