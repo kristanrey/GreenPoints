@@ -323,7 +323,7 @@ const StatisticsPage: React.FC = () => {
                 <IonButton
                   color="danger"
                   fill="outline"
-                  href="/GreenPoints/validators"
+                  href="/GreenPoints/EventDashboard"
                 >
                   <IonIcon icon={arrowBackOutline} slot="start" />
                   Back
@@ -456,3 +456,4 @@ const ChartCard: React.FC<{ title: string; children: React.ReactNode }> = ({
 );
 
 export default StatisticsPage;
+  

@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.tsx
 import { JSX, useEffect, useState } from "react";
 import {
   Box,
@@ -64,13 +65,7 @@ interface Participant {
 interface StatCardProps {
   title: string;
   value: string | number | JSX.Element;
-  color:
-    | "primary"
-    | "secondary"
-    | "error"
-    | "warning"
-    | "info"
-    | "success";
+  color: "primary" | "secondary" | "error" | "warning" | "info" | "success";
 }
 
 const StatCard = ({ title, value, color }: StatCardProps) => {
@@ -82,10 +77,13 @@ const StatCard = ({ title, value, color }: StatCardProps) => {
         backgroundColor: theme.palette[color].main,
         color: theme.palette[color].contrastText,
         boxShadow: 3,
+        borderRadius: 3,
       }}
     >
       <CardContent>
-        <Typography variant="subtitle1">{title}</Typography>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          {title}
+        </Typography>
         <Typography variant="h5" fontWeight="bold">
           {value}
         </Typography>
@@ -98,15 +96,18 @@ const Dashboard = () => {
   const theme = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [eventsCount, setEventsCount] = useState<number | null>(null);
-  const [registrationsCount, setRegistrationsCount] = useState<number | null>(null);
+  const [registrationsCount, setRegistrationsCount] = useState<number | null>(
+    null
+  );
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [inactivePlanters, setInactivePlanters] = useState<number | null>(null);
   const [totalPlanters, setTotalPlanters] = useState<number | null>(null);
+  const [approvedTrees, setApprovedTrees] = useState<number | null>(null);
   const [activityData, setActivityData] = useState<ParticipantActivity[]>([]);
 
-  // Fetch event & registration counts
+  // ✅ Fetch event & registration counts
   useEffect(() => {
     async function fetchCounts() {
       const { count: eventsCount } = await supabase
@@ -123,12 +124,12 @@ const Dashboard = () => {
     fetchCounts();
   }, []);
 
-  // Fetch planter data from profiles
+  // ✅ Fetch planter data (real total planters from `trees_planted > 0`)
   useEffect(() => {
     async function fetchPlanterData() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, role, last_submission");
+        .select("user_id, role, trees_planted, last_submission");
 
       if (error) {
         console.error("Error fetching planter data:", error);
@@ -136,18 +137,14 @@ const Dashboard = () => {
       }
       if (!data) return;
 
+      const total = data.filter((p) => p.trees_planted && p.trees_planted > 0).length;
       const now = new Date();
       const inactiveThresholdDays = 30;
-
-      const total = data.filter(
-        (p) => p.role === "user" || p.role === "planter"
-      ).length;
 
       const inactive = data.filter((p) => {
         if (!p.last_submission) return true;
         const lastDate = new Date(p.last_submission);
-        const diffDays =
-          (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
+        const diffDays = (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
         return diffDays > inactiveThresholdDays;
       }).length;
 
@@ -157,7 +154,25 @@ const Dashboard = () => {
     fetchPlanterData();
   }, []);
 
-  // Fetch participants and activity
+  // ✅ Fetch approved trees (from tree_submissions)
+  useEffect(() => {
+    async function fetchApprovedTrees() {
+      const { count, error } = await supabase
+        .from("tree_submissions")
+        .select("*", { count: "exact" })
+        .eq("status", "approved");
+
+      if (error) {
+        console.error("Error fetching approved trees:", error);
+        return;
+      }
+      setApprovedTrees(count || 0);
+    }
+
+    fetchApprovedTrees();
+  }, []);
+
+  // ✅ Fetch participants and chart data
   useEffect(() => {
     async function fetchParticipants() {
       const { data, error } = await supabase
@@ -172,7 +187,7 @@ const Dashboard = () => {
 
       setParticipants(data || []);
 
-      // Compute monthly activity stats
+      // Compute monthly stats
       if (data) {
         const months = [
           "Jan", "Feb", "Mar", "Apr", "May",
@@ -180,7 +195,6 @@ const Dashboard = () => {
         ];
 
         const grouped: { [key: string]: ParticipantActivity } = {};
-
         months.forEach((m) => {
           grouped[m] = {
             month: m,
@@ -193,20 +207,13 @@ const Dashboard = () => {
         data.forEach((p) => {
           const date = new Date(p.created_at);
           const month = months[date.getMonth()];
-
-          // New = every new record
           grouped[month].newParticipants += 1;
-
-          // Active = approved
           if (p.status === "approved") grouped[month].activeParticipants += 1;
-
-          // Inactive = rejected or pending
           if (p.status === "rejected" || p.status === "pending")
             grouped[month].inactiveParticipants += 1;
         });
 
-        const chartData = Object.values(grouped);
-        setActivityData(chartData);
+        setActivityData(Object.values(grouped));
       }
     }
 
@@ -244,7 +251,7 @@ const Dashboard = () => {
       color: "success",
     },
     {
-      title: "Inactive Planters",
+      title: "Number of Users",
       value:
         inactivePlanters === null ? (
           <CircularProgress size={20} color="inherit" />
@@ -262,6 +269,16 @@ const Dashboard = () => {
           totalPlanters
         ),
       color: "info",
+    },
+    {
+      title: "Total Approved Trees",
+      value:
+        approvedTrees === null ? (
+          <CircularProgress size={20} color="inherit" />
+        ) : (
+          approvedTrees
+        ),
+      color: "secondary",
     },
   ];
 
@@ -286,56 +303,25 @@ const Dashboard = () => {
         </Box>
         <Divider />
         <List>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/dashboard">
-              <ListItemText primary="Dashboard" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/event">
-              <ListItemText primary="Create Event" />
-            </ListItemButton>
-          </ListItem>
-            <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/validate">
-              <ListItemText primary="Validate" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/adminvalidateevent">
-              <ListItemText primary="Events" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/adminmanage">
-              <ListItemText primary="Manage" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/leaderboard">
-              <ListItemText primary="Leaderboards" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/feedback">
-              <ListItemText primary="Feedback" />
-            </ListItemButton>
-          </ListItem>
-             <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/statistics">
-              <ListItemText primary="Statistics" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/news">
-              <ListItemText primary="News" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/settings">
-              <ListItemText primary="Settings" />
-            </ListItemButton>
-          </ListItem>
+          {[
+            { text: "Dashboard", href: "/dashboard" },
+            { text: "Create Event", href: "/GreenPoints/event" },
+            { text: "Validate", href: "/GreenPoints/validate" },
+            { text: "Events", href: "/GreenPoints/adminvalidateevent" },
+            { text: "Manage", href: "/GreenPoints/adminmanage" },
+            { text: "Leaderboards", href: "/GreenPoints/leaderboard" },
+            { text: "Event Leaderboards", href: "/GreenPoints/EventLearderboards" },
+            { text: "Feedback", href: "/GreenPoints/feedback" },
+            { text: "Statistics", href: "/GreenPoints/statistics" },
+            { text: "News", href: "/GreenPoints/news" },
+            { text: "Settings", href: "/settings" },
+          ].map((item) => (
+            <ListItem disablePadding key={item.text}>
+              <ListItemButton component="a" href={item.href}>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
         </List>
       </Drawer>
 
@@ -343,7 +329,7 @@ const Dashboard = () => {
       <Box sx={{ flexGrow: 1 }}>
         <AppBar position="static" color="primary">
           <Toolbar sx={{ justifyContent: "space-between" }}>
-            <Typography variant="h6">Admin Event Dashboard</Typography>
+            <Typography variant="h6">Admin Dashboard</Typography>
             <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
               <MenuIcon />
             </IconButton>
