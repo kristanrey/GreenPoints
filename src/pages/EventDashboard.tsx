@@ -1,4 +1,3 @@
-// src/pages/AdminDashboard.tsx
 import { JSX, useEffect, useState } from "react";
 import {
   Box,
@@ -43,13 +42,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import "./css/EventDashboard.css";
-
-interface ParticipantActivity {
-  month: string;
-  newParticipants: number;
-  activeParticipants: number;
-  inactiveParticipants: number;
-}
 
 interface Participant {
   response_id: number;
@@ -105,9 +97,15 @@ const Dashboard = () => {
   const [inactivePlanters, setInactivePlanters] = useState<number | null>(null);
   const [totalPlanters, setTotalPlanters] = useState<number | null>(null);
   const [approvedTrees, setApprovedTrees] = useState<number | null>(null);
-  const [activityData, setActivityData] = useState<ParticipantActivity[]>([]);
+  const [rejectedTrees, setRejectedTrees] = useState<number | null>(null);
 
-  // ✅ Fetch event & registration counts
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logFilter, setLogFilter] = useState("daily");
+  const [logData, setLogData] = useState<{ period: string; count: number }[]>(
+    []
+  );
+
+  // Fetch counts
   useEffect(() => {
     async function fetchCounts() {
       const { count: eventsCount } = await supabase
@@ -124,7 +122,7 @@ const Dashboard = () => {
     fetchCounts();
   }, []);
 
-  // ✅ Fetch planter data (real total planters from `trees_planted > 0`)
+  // Fetch planter data
   useEffect(() => {
     async function fetchPlanterData() {
       const { data, error } = await supabase
@@ -137,14 +135,17 @@ const Dashboard = () => {
       }
       if (!data) return;
 
-      const total = data.filter((p) => p.trees_planted && p.trees_planted > 0).length;
+      const total = data.filter(
+        (p) => p.trees_planted && p.trees_planted > 0
+      ).length;
       const now = new Date();
       const inactiveThresholdDays = 30;
 
       const inactive = data.filter((p) => {
         if (!p.last_submission) return true;
         const lastDate = new Date(p.last_submission);
-        const diffDays = (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
+        const diffDays =
+          (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
         return diffDays > inactiveThresholdDays;
       }).length;
 
@@ -154,25 +155,32 @@ const Dashboard = () => {
     fetchPlanterData();
   }, []);
 
-  // ✅ Fetch approved trees (from tree_submissions)
+  // Fetch approved and rejected trees
   useEffect(() => {
-    async function fetchApprovedTrees() {
-      const { count, error } = await supabase
+    async function fetchTreeCounts() {
+      const approved = await supabase
         .from("tree_submissions")
         .select("*", { count: "exact" })
         .eq("status", "approved");
 
-      if (error) {
-        console.error("Error fetching approved trees:", error);
-        return;
-      }
-      setApprovedTrees(count || 0);
+      const rejected = await supabase
+        .from("tree_submissions")
+        .select("*", { count: "exact" })
+        .eq("status", "rejected");
+
+      if (approved.error)
+        console.error("Error fetching approved trees:", approved.error);
+      if (rejected.error)
+        console.error("Error fetching rejected trees:", rejected.error);
+
+      setApprovedTrees(approved.count || 0);
+      setRejectedTrees(rejected.count || 0);
     }
 
-    fetchApprovedTrees();
+    fetchTreeCounts();
   }, []);
 
-  // ✅ Fetch participants and chart data
+  // Fetch participants
   useEffect(() => {
     async function fetchParticipants() {
       const { data, error } = await supabase
@@ -186,39 +194,64 @@ const Dashboard = () => {
       }
 
       setParticipants(data || []);
-
-      // Compute monthly stats
-      if (data) {
-        const months = [
-          "Jan", "Feb", "Mar", "Apr", "May",
-          "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-        ];
-
-        const grouped: { [key: string]: ParticipantActivity } = {};
-        months.forEach((m) => {
-          grouped[m] = {
-            month: m,
-            newParticipants: 0,
-            activeParticipants: 0,
-            inactiveParticipants: 0,
-          };
-        });
-
-        data.forEach((p) => {
-          const date = new Date(p.created_at);
-          const month = months[date.getMonth()];
-          grouped[month].newParticipants += 1;
-          if (p.status === "approved") grouped[month].activeParticipants += 1;
-          if (p.status === "rejected" || p.status === "pending")
-            grouped[month].inactiveParticipants += 1;
-        });
-
-        setActivityData(Object.values(grouped));
-      }
     }
 
     fetchParticipants();
   }, []);
+
+  // Fetch logs
+  useEffect(() => {
+    async function fetchLogs() {
+      const { data, error } = await supabase
+        .from("logs")
+        .select("action, login_time")
+        .order("login_time", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching logs:", error);
+        return;
+      }
+      if (!data) return;
+
+      const logCounts: { [key: string]: number } = {};
+
+      data.forEach((log) => {
+        if (log.action === "login") {
+          const date = new Date(log.login_time);
+          let key = "";
+
+          if (logFilter === "daily") {
+            key = date.toLocaleDateString("default", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          } else {
+            const onejan = new Date(date.getFullYear(), 0, 1);
+            const week = Math.ceil(
+              ((date.getTime() - onejan.getTime()) / 86400000 +
+                onejan.getDay() +
+                1) /
+                7
+            );
+            key = `Week ${week}, ${date.getFullYear()}`;
+          }
+
+          logCounts[key] = (logCounts[key] || 0) + 1;
+        }
+      });
+
+      const formatted = Object.entries(logCounts).map(([period, count]) => ({
+        period,
+        count,
+      }));
+
+      setLogs(data);
+      setLogData(formatted);
+    }
+
+    fetchLogs();
+  }, [logFilter]);
 
   const filteredParticipants =
     statusFilter === "all"
@@ -251,7 +284,7 @@ const Dashboard = () => {
       color: "success",
     },
     {
-      title: "Number of Users",
+      title: "Inactive Planters",
       value:
         inactivePlanters === null ? (
           <CircularProgress size={20} color="inherit" />
@@ -271,19 +304,19 @@ const Dashboard = () => {
       color: "info",
     },
     {
-      title: "Total Approved Trees",
+      title: "Approved / Rejected Trees",
       value:
-        approvedTrees === null ? (
+        approvedTrees === null || rejectedTrees === null ? (
           <CircularProgress size={20} color="inherit" />
         ) : (
-          approvedTrees
+          `${approvedTrees} / ${rejectedTrees}`
         ),
       color: "secondary",
     },
   ];
 
   return (
-    <Box sx={{ display: "flex" }}>
+    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* Drawer */}
       <Drawer
         anchor="right"
@@ -311,7 +344,7 @@ const Dashboard = () => {
             { text: "Manage", href: "/GreenPoints/adminmanage" },
             { text: "Leaderboards", href: "/GreenPoints/leaderboard" },
             { text: "Event Leaderboards", href: "/GreenPoints/EventLearderboards" },
-            { text: "Feedback", href: "/GreenPoints/feedback" },
+            { text: "Feedback", href: "/GreenPoints/feedbackadmin" },
             { text: "Statistics", href: "/GreenPoints/statistics" },
             { text: "News", href: "/GreenPoints/news" },
             { text: "Settings", href: "/settings" },
@@ -326,8 +359,14 @@ const Dashboard = () => {
       </Drawer>
 
       {/* Main Content */}
-      <Box sx={{ flexGrow: 1 }}>
-        <AppBar position="static" color="primary">
+      <Box
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          height: "100vh",
+        }}
+      >
+        <AppBar position="sticky" color="primary">
           <Toolbar sx={{ justifyContent: "space-between" }}>
             <Typography variant="h6">Admin Dashboard</Typography>
             <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
@@ -355,27 +394,61 @@ const Dashboard = () => {
             gridTemplateColumns={{ xs: "1fr", md: "40% 60%" }}
             gap={2}
           >
-            {/* Chart */}
-            <Card sx={{ p: 2, boxShadow: 3 }}>
+            {/* Login Activity Chart */}
+            <Card sx={{ p: 2, boxShadow: 3, minHeight: 400 }}>
               <Typography variant="subtitle1" mb={1}>
-                Monthly Participant Activity
+                User Login Activity
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={activityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="newParticipants" stroke="#8884d8" />
-                  <Line type="monotone" dataKey="activeParticipants" stroke="#82ca9d" />
-                  <Line type="monotone" dataKey="inactiveParticipants" stroke="#ffc658" />
-                </LineChart>
-              </ResponsiveContainer>
+
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>View By</InputLabel>
+                <Select
+                  value={logFilter}
+                  label="View By"
+                  onChange={(e) => setLogFilter(e.target.value)}
+                >
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                </Select>
+              </FormControl>
+
+              {logData.length === 0 ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  textAlign="center"
+                >
+                  No login activity found.
+                </Typography>
+              ) : (
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={logData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#1976d2"
+                      name="Logins"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </Card>
 
             {/* Participant List */}
-            <Card sx={{ p: 2, boxShadow: 3 }}>
+            <Card
+              sx={{
+                p: 2,
+                boxShadow: 3,
+                minHeight: 400,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               <Typography variant="subtitle1" mb={1}>
                 Event Response
               </Typography>
@@ -394,7 +467,10 @@ const Dashboard = () => {
                 </Select>
               </FormControl>
 
-              <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+              <TableContainer
+                component={Paper}
+                sx={{ flexGrow: 1, overflowY: "auto", maxHeight: 300 }}
+              >
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>

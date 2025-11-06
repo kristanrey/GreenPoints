@@ -59,6 +59,9 @@ import AdminValidateEvent from './pages/AdminValidateEvent';
 import EventDashboard from './pages/EventDashboard';
 import DataCharts from './pages/DataCharts';
 import EventLearderboards from './pages/EventLearderboards';
+import DuplicateChecker from './pages/DuplicateChecker';
+
+
 
 
 
@@ -104,26 +107,30 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/news" component={News} exact />
           <Route path="/GreenPoints/news/:id" component={NewsDetail} exact />
           <Route path="/GreenPoints/streak" component={Streak} exact />
-            <Route path="/GreenPoints/logs" component={Logs} exact />
-             <Route path="/GreenPoints/adminmanage" component={AdminManage} exact />
-               <Route path="/GreenPoints/fetch" component={Fetch} exact />
-                   <Route path="/GreenPoints/event" component={Event} exact />
-                   <Route path="/GreenPoints/userevent" component={UserEvent} exact />
-                   <Route path="/GreenPoints/events/:id" component={EventDetails} exact />
-                   <Route path="/GreenPoints/participate" component={Participate} exact />
-                    <Route path="/GreenPoints/treemonitor" component={TreeMonitor} exact />
-                    <Route path="/radar/:id" component={RadarPage} exact />
-                     <Route path="/take-picture/:submission_id" component={TakePicture} exact />
-                      <Route path="/GreenPoints/input"  component={Input} exact />
-                       <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
-                       <Route path="/update-reward/:id" component={UpdateReward} exact />
-                       <Route path="/GreenPoints/statistics" component={Statistics} exact />
-                        <Route path="/GreenPoints/appointment" component={Appointment} exact />
-                       <Route path="/GreenPoints/approval" component={Approval} exact />
-                        <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
-                         <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
-                         <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
-                         <Route path="/GreenPoints/EventLearderboards" component={EventLearderboards} exact />
+          <Route path="/GreenPoints/logs" component={Logs} exact />
+          <Route path="/GreenPoints/adminmanage" component={AdminManage} exact />
+          <Route path="/GreenPoints/fetch" component={Fetch} exact />
+          <Route path="/GreenPoints/event" component={Event} exact />
+          <Route path="/GreenPoints/userevent" component={UserEvent} exact />
+          <Route path="/GreenPoints/events/:id" component={EventDetails} exact />
+          <Route path="/GreenPoints/participate" component={Participate} exact />
+          <Route path="/GreenPoints/treemonitor" component={TreeMonitor} exact />
+          <Route path="/radar/:id" component={RadarPage} exact />
+          <Route path="/take-picture/:submission_id" component={TakePicture} exact />
+          <Route path="/GreenPoints/input"  component={Input} exact />
+          <Route path="/GreenPoints/createrew"  component={CreateRew} exact />
+          <Route path="/update-reward/:id" component={UpdateReward} exact />
+          <Route path="/GreenPoints/statistics" component={Statistics} exact />
+          <Route path="/GreenPoints/appointment" component={Appointment} exact />
+          <Route path="/GreenPoints/approval" component={Approval} exact />
+          <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
+          <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
+          <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
+          <Route path="/GreenPoints/EventLearderboards" component={EventLearderboards} exact />
+          <Route path="/GreenPoints/DuplicateChecker" component={DuplicateChecker} exact />
+                         
+
+                         
                       
 
 
