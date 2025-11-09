@@ -31,6 +31,7 @@ import {
   Paper,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { supabase } from "../utils/supabaseClient";
 import {
   LineChart,
@@ -169,7 +170,9 @@ const Dashboard = () => {
       data.forEach((log) => {
         if (log.action === "login") {
           const date = new Date(log.login_time);
-          let key = logFilter === "daily" ? date.toLocaleDateString() : `Week ${Math.ceil((((date.getTime() - new Date(date.getFullYear(),0,1).getTime()) / 86400000 + new Date(date.getFullYear(),0,1).getDay() + 1)/7))}, ${date.getFullYear()}`;
+          let key = logFilter === "daily" 
+            ? date.toLocaleDateString() 
+            : `Week ${Math.ceil((((date.getTime() - new Date(date.getFullYear(),0,1).getTime()) / 86400000 + new Date(date.getFullYear(),0,1).getDay() + 1)/7))}, ${date.getFullYear()}`;
           logCounts[key] = (logCounts[key] || 0) + 1;
         }
       });
@@ -199,7 +202,7 @@ const Dashboard = () => {
         <Box sx={{ p: 2, textAlign: "center" }}><Typography variant="h6">🎓 Admin Portal</Typography></Box>
         <Divider />
         <List>
-          {[
+          {[ 
             { text: "Dashboard", href: "/dashboard" },
             { text: "Create Event", href: "/GreenPoints/event" },
             { text: "Validate", href: "/GreenPoints/validate" },
@@ -224,7 +227,21 @@ const Dashboard = () => {
         <AppBar position="static" color="primary">
           <Toolbar sx={{ justifyContent: "space-between" }}>
             <Typography variant="h6">Admin Dashboard</Typography>
-            <IconButton color="inherit" onClick={() => setDrawerOpen(true)}><MenuIcon /></IconButton>
+            <Box>
+              <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
+                <MenuIcon />
+              </IconButton>
+              <IconButton
+                color="inherit"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = "/GreenPoints/validatorslogin"; // redirect after logout
+                }}
+                title="Logout"
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Box>
           </Toolbar>
         </AppBar>
 

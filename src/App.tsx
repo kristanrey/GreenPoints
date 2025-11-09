@@ -127,7 +127,7 @@ const App: React.FC = () => (
           <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
           <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
           <Route path="/GreenPoints/EventLearderboards" component={EventLearderboards} exact />
-          <Route path="/GreenPoints/DuplicateChecker" component={DuplicateChecker} exact />
+          <Route path="/GreenPoints/duplicatechecker" component={DuplicateChecker} exact />
                          
 
                          

@@ -15,11 +15,19 @@ import {
   IonCardTitle,
   IonCardContent,
   IonButtons,
-  IonIcon,
 } from "@ionic/react";
 import { useHistory } from "react-router";
 import { supabase } from "../utils/supabaseClient";
-import { locationOutline } from "ionicons/icons";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix Leaflet icon issue (TypeScript-safe)
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 interface Submission {
   submission_id: number;
@@ -47,7 +55,10 @@ const ValidatePage: React.FC = () => {
   useEffect(() => {
     const checkValidatorAccess = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (!user) {
           setToastMsg("⚠️ Please login as validator");
           setShowToast(true);
@@ -197,14 +208,7 @@ const ValidatePage: React.FC = () => {
                 </IonCardTitle>
               </IonCardHeader>
               <IonCardContent>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "24px",
-                    alignItems: "flex-start",
-                  }}
-                >
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
                   {/* Left: Image + Buttons */}
                   <div style={{ textAlign: "center" }}>
                     {sub.image_url ? (
@@ -253,7 +257,7 @@ const ValidatePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Right: Tree Info + EXIF Metadata */}
+                  {/* Right: Tree Info + Map */}
                   <div
                     style={{
                       border: "1px solid #e0e0e0",
@@ -264,7 +268,7 @@ const ValidatePage: React.FC = () => {
                     }}
                   >
                     <h4 style={{ marginBottom: "12px", fontWeight: "600" }}>
-                      Tree Info & EXIF Metadata
+                      Tree Info & Location
                     </h4>
                     <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse" }}>
                       <tbody>
@@ -287,59 +291,43 @@ const ValidatePage: React.FC = () => {
                           </td>
                         </tr>
                         <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>Device</td>
-                          <td style={{ padding: "4px" }}>
-                            {sub.exif_metadata?.Make || "Unknown"} {sub.exif_metadata?.Model || ""}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Raw)</td>
+                          <td style={{ fontWeight: "600", padding: "4px" }}>GPS (Lat,Lon)</td>
                           <td style={{ padding: "4px" }}>
                             {sub.latitude}, {sub.longitude}
                           </td>
                         </tr>
-                        <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>Orientation</td>
-                          <td style={{ padding: "4px" }}>
-                            {sub.exif_metadata?.Orientation || "N/A"}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>Exif version</td>
-                          <td style={{ padding: "4px" }}>
-                            {sub.exif_metadata?.ExifVersion || "N/A"}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>Latitude (DMS)</td>
-                          <td style={{ padding: "4px", display: "flex", alignItems: "center" }}>
-                            {toDMS(sub.latitude, "lat")}
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ marginLeft: "6px" }}
-                            >
-                              <IonIcon icon={locationOutline} color="primary" />
-                            </a>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: "600", padding: "4px" }}>Longitude (DMS)</td>
-                          <td style={{ padding: "4px", display: "flex", alignItems: "center" }}>
-                            {toDMS(sub.longitude, "lon")}
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${sub.latitude},${sub.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ marginLeft: "6px" }}
-                            >
-                              <IonIcon icon={locationOutline} color="primary" />
-                            </a>
-                          </td>
-                        </tr>
                       </tbody>
                     </table>
+
+                    {/* Map showing marker with popup */}
+                    <div style={{ height: "250px", marginTop: "12px" }}>
+                      <MapContainer
+                        center={[sub.latitude, sub.longitude]}
+                        zoom={16}
+                        scrollWheelZoom={false}
+                        style={{ height: "100%", width: "100%" }}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[sub.latitude, sub.longitude]}>
+                          <Popup>
+                            <strong>{sub.tree_name}</strong>
+                            <br />
+                            {sub.image_url && (
+                              <img
+                                src={sub.image_url}
+                                alt={sub.tree_name}
+                                style={{ width: "100px", marginTop: "4px" }}
+                              />
+                            )}
+                            <br />
+                            {sub.municipality}, {sub.barangay}
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </div>
                   </div>
                 </div>
               </IonCardContent>

@@ -466,7 +466,7 @@ const StatisticsPage: React.FC = () => {
   );
 };
 
-// Chart wrapper with CSV button
+// --- ChartCard Component with professional CSV button placement ---
 interface ChartCardProps {
   title: string;
   children: React.ReactNode;
@@ -481,28 +481,33 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, children, csvData, csvFile
       borderRadius: "12px",
       boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
       padding: "1rem",
-      position: "relative",
+      display: "flex",
+      flexDirection: "column",
     }}
   >
-    <h3 style={{ textAlign: "center", marginBottom: "1rem", color: "#006400" }}>
-      {title}
-    </h3>
-
-    {/* CSV Download Button */}
-    {csvData && csvFilename && (
-      <IonButton
-        size="small"
-        fill="outline"
-        color="primary"
-        style={{ position: "absolute", top: "10px", right: "10px" }}
-        onClick={() => downloadCSV(csvData, csvFilename)}
-      >
-        <IonIcon icon={downloadOutline} slot="start" />
-        CSV
-      </IonButton>
-    )}
-
-    <div className="chart">{children}</div>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "1rem",
+      }}
+    >
+      <h3 style={{ margin: 0, color: "#006400", fontSize: "1.1rem" }}>{title}</h3>
+      {csvData && csvFilename && (
+        <IonButton
+          size="small"
+          fill="clear"
+          color="primary"
+          onClick={() => downloadCSV(csvData, csvFilename)}
+          style={{ fontSize: "0.8rem" }}
+        >
+          <IonIcon icon={downloadOutline} slot="start" />
+          Export
+        </IonButton>
+      )}
+    </div>
+    <div style={{ flex: 1 }}>{children}</div>
   </div>
 );
 
