@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.tsx
 import { JSX, useEffect, useState } from "react";
 import {
   Box,
@@ -30,6 +31,7 @@ import {
   Paper,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { supabase } from "../utils/supabaseClient";
 import {
   LineChart,
@@ -42,13 +44,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import "./css/EventDashboard.css";
-
-interface ParticipantActivity {
-  month: string;
-  newParticipants: number;
-  activeParticipants: number;
-  inactiveParticipants: number;
-}
 
 interface Participant {
   response_id: number;
@@ -64,13 +59,7 @@ interface Participant {
 interface StatCardProps {
   title: string;
   value: string | number | JSX.Element;
-  color:
-    | "primary"
-    | "secondary"
-    | "error"
-    | "warning"
-    | "info"
-    | "success";
+  color: "primary" | "secondary" | "error" | "warning" | "info" | "success";
 }
 
 const StatCard = ({ title, value, color }: StatCardProps) => {
@@ -82,10 +71,13 @@ const StatCard = ({ title, value, color }: StatCardProps) => {
         backgroundColor: theme.palette[color].main,
         color: theme.palette[color].contrastText,
         boxShadow: 3,
+        borderRadius: 3,
       }}
     >
       <CardContent>
-        <Typography variant="subtitle1">{title}</Typography>
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          {title}
+        </Typography>
         <Typography variant="h5" fontWeight="bold">
           {value}
         </Typography>
@@ -104,50 +96,39 @@ const Dashboard = () => {
 
   const [inactivePlanters, setInactivePlanters] = useState<number | null>(null);
   const [totalPlanters, setTotalPlanters] = useState<number | null>(null);
-  const [activityData, setActivityData] = useState<ParticipantActivity[]>([]);
+  const [approvedTrees, setApprovedTrees] = useState<number | null>(null);
+  const [rejectedTrees, setRejectedTrees] = useState<number | null>(null);
 
-  // Fetch event & registration counts
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logFilter, setLogFilter] = useState("daily");
+  const [logData, setLogData] = useState<{ period: string; count: number }[]>([]);
+
+  // Fetch counts
   useEffect(() => {
     async function fetchCounts() {
-      const { count: eventsCount } = await supabase
-        .from("events")
-        .select("*", { count: "exact" });
-
-      const { count: registrationsCount } = await supabase
-        .from("event_registrations")
-        .select("*", { count: "exact" });
-
+      const { count: eventsCount } = await supabase.from("events").select("*", { count: "exact" });
+      const { count: registrationsCount } = await supabase.from("event_registrations").select("*", { count: "exact" });
       setEventsCount(eventsCount || 0);
       setRegistrationsCount(registrationsCount || 0);
     }
     fetchCounts();
   }, []);
 
-  // Fetch planter data from profiles
+  // Fetch planters
   useEffect(() => {
     async function fetchPlanterData() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, role, last_submission");
-
-      if (error) {
-        console.error("Error fetching planter data:", error);
-        return;
-      }
+      const { data, error } = await supabase.from("profiles").select("user_id, role, trees_planted, last_submission");
+      if (error) return console.error(error);
       if (!data) return;
 
+      const total = data.filter((p) => p.trees_planted && p.trees_planted > 0).length;
       const now = new Date();
       const inactiveThresholdDays = 30;
-
-      const total = data.filter(
-        (p) => p.role === "user" || p.role === "planter"
-      ).length;
 
       const inactive = data.filter((p) => {
         if (!p.last_submission) return true;
         const lastDate = new Date(p.last_submission);
-        const diffDays =
-          (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
+        const diffDays = (now.getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
         return diffDays > inactiveThresholdDays;
       }).length;
 
@@ -157,250 +138,152 @@ const Dashboard = () => {
     fetchPlanterData();
   }, []);
 
-  // Fetch participants and activity
+  // Fetch trees
+  useEffect(() => {
+    async function fetchTreeCounts() {
+      const approved = await supabase.from("tree_submissions").select("*", { count: "exact" }).eq("status", "approved");
+      const rejected = await supabase.from("tree_submissions").select("*", { count: "exact" }).eq("status", "rejected");
+      setApprovedTrees(approved.count || 0);
+      setRejectedTrees(rejected.count || 0);
+    }
+    fetchTreeCounts();
+  }, []);
+
+  // Fetch participants
   useEffect(() => {
     async function fetchParticipants() {
-      const { data, error } = await supabase
-        .from("event_responses")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error loading participants:", error);
-        return;
-      }
-
+      const { data, error } = await supabase.from("event_responses").select("*").order("created_at", { ascending: false });
+      if (error) return console.error(error);
       setParticipants(data || []);
-
-      // Compute monthly activity stats
-      if (data) {
-        const months = [
-          "Jan", "Feb", "Mar", "Apr", "May",
-          "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-        ];
-
-        const grouped: { [key: string]: ParticipantActivity } = {};
-
-        months.forEach((m) => {
-          grouped[m] = {
-            month: m,
-            newParticipants: 0,
-            activeParticipants: 0,
-            inactiveParticipants: 0,
-          };
-        });
-
-        data.forEach((p) => {
-          const date = new Date(p.created_at);
-          const month = months[date.getMonth()];
-
-          // New = every new record
-          grouped[month].newParticipants += 1;
-
-          // Active = approved
-          if (p.status === "approved") grouped[month].activeParticipants += 1;
-
-          // Inactive = rejected or pending
-          if (p.status === "rejected" || p.status === "pending")
-            grouped[month].inactiveParticipants += 1;
-        });
-
-        const chartData = Object.values(grouped);
-        setActivityData(chartData);
-      }
     }
-
     fetchParticipants();
   }, []);
 
-  const filteredParticipants =
-    statusFilter === "all"
-      ? participants
-      : participants.filter((p) => p.status === statusFilter);
+  // Fetch logs
+  useEffect(() => {
+    async function fetchLogs() {
+      const { data, error } = await supabase.from("logs").select("action, login_time").order("login_time", { ascending: true });
+      if (error) return console.error(error);
+      if (!data) return;
 
-  const handleStatusFilterChange = (event: SelectChangeEvent) => {
-    setStatusFilter(event.target.value as string);
-  };
+      const logCounts: { [key: string]: number } = {};
+      data.forEach((log) => {
+        if (log.action === "login") {
+          const date = new Date(log.login_time);
+          let key = logFilter === "daily" 
+            ? date.toLocaleDateString() 
+            : `Week ${Math.ceil((((date.getTime() - new Date(date.getFullYear(),0,1).getTime()) / 86400000 + new Date(date.getFullYear(),0,1).getDay() + 1)/7))}, ${date.getFullYear()}`;
+          logCounts[key] = (logCounts[key] || 0) + 1;
+        }
+      });
+
+      setLogs(data);
+      setLogData(Object.entries(logCounts).map(([period, count]) => ({ period, count })));
+    }
+    fetchLogs();
+  }, [logFilter]);
+
+  const filteredParticipants = statusFilter === "all" ? participants : participants.filter((p) => p.status === statusFilter);
+  const handleStatusFilterChange = (event: SelectChangeEvent) => setStatusFilter(event.target.value as string);
 
   const stats: StatCardProps[] = [
-    {
-      title: "Number of Events",
-      value:
-        eventsCount === null ? (
-          <CircularProgress size={20} color="inherit" />
-        ) : (
-          eventsCount
-        ),
-      color: "primary",
-    },
-    {
-      title: "Number of Participants",
-      value:
-        registrationsCount === null ? (
-          <CircularProgress size={20} color="inherit" />
-        ) : (
-          registrationsCount
-        ),
-      color: "success",
-    },
-    {
-      title: "Inactive Planters",
-      value:
-        inactivePlanters === null ? (
-          <CircularProgress size={20} color="inherit" />
-        ) : (
-          inactivePlanters
-        ),
-      color: "warning",
-    },
-    {
-      title: "Total Planters",
-      value:
-        totalPlanters === null ? (
-          <CircularProgress size={20} color="inherit" />
-        ) : (
-          totalPlanters
-        ),
-      color: "info",
-    },
+    { title: "Number of Events", value: eventsCount ?? <CircularProgress size={20} />, color: "primary" },
+    { title: "Number Event Participants", value: registrationsCount ?? <CircularProgress size={20} />, color: "success" },
+    { title: "Number of Users", value: inactivePlanters ?? <CircularProgress size={20} />, color: "warning" },
+    { title: "Total Planters", value: totalPlanters ?? <CircularProgress size={20} />, color: "info" },
+    { title: "Total Approved Trees / Rejected", value: approvedTrees !== null && rejectedTrees !== null ? `${approvedTrees} / ${rejectedTrees}` : <CircularProgress size={20} />, color: "secondary" },
   ];
 
   return (
-    <Box sx={{ display: "flex" }}>
+    <Box sx={{ display: "flex", height: "100vh" }}>
       {/* Drawer */}
-      <Drawer
-        anchor="right"
-        variant="temporary"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        sx={{
-          "& .MuiDrawer-paper": {
-            width: 240,
-            boxSizing: "border-box",
-            backgroundColor: theme.palette.background.paper,
-          },
-        }}
-      >
-        <Box sx={{ p: 2, textAlign: "center" }}>
-          <Typography variant="h6">🎓 Admin Portal</Typography>
-        </Box>
+      <Drawer anchor="right" variant="temporary" open={drawerOpen} onClose={() => setDrawerOpen(false)}
+        sx={{ "& .MuiDrawer-paper": { width: 240, boxSizing: "border-box", backgroundColor: theme.palette.background.paper } }}>
+        <Box sx={{ p: 2, textAlign: "center" }}><Typography variant="h6">🎓 Admin Portal</Typography></Box>
         <Divider />
         <List>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/dashboard">
-              <ListItemText primary="Dashboard" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/event">
-              <ListItemText primary="Create Event" />
-            </ListItemButton>
-          </ListItem>
-            <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/validate">
-              <ListItemText primary="Validate" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/adminvalidateevent">
-              <ListItemText primary="Events" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/adminmanage">
-              <ListItemText primary="Manage" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/leaderboard">
-              <ListItemText primary="Leaderboards" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/feedback">
-              <ListItemText primary="Feedback" />
-            </ListItemButton>
-          </ListItem>
-             <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/statistics">
-              <ListItemText primary="Statistics" />
-            </ListItemButton>
-          </ListItem>
-           <ListItem disablePadding>
-            <ListItemButton component="a" href="/GreenPoints/news">
-              <ListItemText primary="News" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton component="a" href="/settings">
-              <ListItemText primary="Settings" />
-            </ListItemButton>
-          </ListItem>
+          {[ 
+            { text: "Dashboard", href: "/dashboard" },
+            { text: "Create Event", href: "/GreenPoints/event" },
+            { text: "Validate", href: "/GreenPoints/validate" },
+            { text: "Events", href: "/GreenPoints/adminvalidateevent" },
+            { text: "Manage", href: "/GreenPoints/adminmanage" },
+            { text: "Leaderboards", href: "/GreenPoints/leaderboard" },
+            { text: "Event Leaderboards", href: "/GreenPoints/EventLearderboards" },
+            { text: "Feedback", href: "/GreenPoints/feedbackadmin" },
+            { text: "Statistics", href: "/GreenPoints/statistics" },
+            { text: "News", href: "/GreenPoints/news" },
+            { text: "Settings", href: "/settings" },
+          ].map((item) => (
+            <ListItem disablePadding key={item.text}>
+              <ListItemButton component="a" href={item.href}><ListItemText primary={item.text} /></ListItemButton>
+            </ListItem>
+          ))}
         </List>
       </Drawer>
 
       {/* Main Content */}
-      <Box sx={{ flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <AppBar position="static" color="primary">
           <Toolbar sx={{ justifyContent: "space-between" }}>
-            <Typography variant="h6">Admin Event Dashboard</Typography>
-            <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
-              <MenuIcon />
-            </IconButton>
+            <Typography variant="h6">Admin Dashboard</Typography>
+            <Box>
+              <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
+                <MenuIcon />
+              </IconButton>
+              <IconButton
+                color="inherit"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = "/GreenPoints/validatorslogin"; // redirect after logout
+                }}
+                title="Logout"
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Box>
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ p: 2 }}>
-          {/* Stats */}
-          <Box
-            display="grid"
-            gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
-            gap={2}
-            mb={3}
-          >
-            {stats.map((s) => (
-              <StatCard key={s.title} {...s} />
-            ))}
+        {/* Scrollable content */}
+        <Box sx={{ p: 2, overflowY: "auto", flexGrow: 1 }}>
+          <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap={2} mb={3}>
+            {stats.map((s) => <StatCard key={s.title} {...s} />)}
           </Box>
 
-          {/* Chart + Participant List */}
-          <Box
-            display="grid"
-            gridTemplateColumns={{ xs: "1fr", md: "40% 60%" }}
-            gap={2}
-          >
-            {/* Chart */}
+          <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "40% 60%" }} gap={2}>
+            {/* Login Activity Chart */}
             <Card sx={{ p: 2, boxShadow: 3 }}>
-              <Typography variant="subtitle1" mb={1}>
-                Monthly Participant Activity
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={activityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="newParticipants" stroke="#8884d8" />
-                  <Line type="monotone" dataKey="activeParticipants" stroke="#82ca9d" />
-                  <Line type="monotone" dataKey="inactiveParticipants" stroke="#ffc658" />
-                </LineChart>
-              </ResponsiveContainer>
+              <Typography variant="subtitle1" mb={1}>User Login Activity</Typography>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>View By</InputLabel>
+                <Select value={logFilter} label="View By" onChange={(e) => setLogFilter(e.target.value)}>
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                </Select>
+              </FormControl>
+              {logData.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" textAlign="center">No login activity found.</Typography>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={logData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="count" stroke="#1976d2" name="Logins" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </Card>
 
             {/* Participant List */}
             <Card sx={{ p: 2, boxShadow: 3 }}>
-              <Typography variant="subtitle1" mb={1}>
-                Event Response
-              </Typography>
-
+              <Typography variant="subtitle1" mb={1}>Event Response</Typography>
               <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                 <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={handleStatusFilterChange}
-                >
+                <Select value={statusFilter} label="Status" onChange={handleStatusFilterChange}>
                   <MenuItem value="all">All</MenuItem>
                   <MenuItem value="pending">Pending</MenuItem>
                   <MenuItem value="approved">Approved</MenuItem>
@@ -408,7 +291,7 @@ const Dashboard = () => {
                 </Select>
               </FormControl>
 
-              <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+              <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
@@ -421,44 +304,23 @@ const Dashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredParticipants.length > 0 ? (
-                      filteredParticipants.map((p) => (
-                        <TableRow key={p.response_id} hover>
-                          <TableCell>
-                            <Avatar
-                              src={p.photo || undefined}
-                              alt={p.username}
-                              sx={{ width: 32, height: 32 }}
-                            />
-                          </TableCell>
-                          <TableCell>{p.username}</TableCell>
-                          <TableCell>{p.event_id}</TableCell>
-                          <TableCell>{p.points}</TableCell>
-                          <TableCell
-                            sx={{
-                              color:
-                                p.status === "approved"
-                                  ? "green"
-                                  : p.status === "pending"
-                                  ? "orange"
-                                  : "red",
-                              fontWeight: "bold",
-                              textTransform: "capitalize",
-                            }}
-                          >
-                            {p.status}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(p.created_at).toLocaleDateString()}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+                    {filteredParticipants.length > 0 ? filteredParticipants.map((p) => (
+                      <TableRow key={p.response_id} hover>
+                        <TableCell><Avatar src={p.photo || undefined} alt={p.username} sx={{ width: 32, height: 32 }} /></TableCell>
+                        <TableCell>{p.username}</TableCell>
+                        <TableCell>{p.event_id}</TableCell>
+                        <TableCell>{p.points}</TableCell>
+                        <TableCell sx={{
+                          color: p.status === "approved" ? "green" : p.status === "pending" ? "orange" : "red",
+                          fontWeight: "bold",
+                          textTransform: "capitalize",
+                        }}>{p.status}</TableCell>
+                        <TableCell>{new Date(p.created_at).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    )) : (
                       <TableRow>
                         <TableCell colSpan={6} align="center">
-                          <Typography variant="body2" color="text.secondary">
-                            No participants found.
-                          </Typography>
+                          <Typography variant="body2" color="text.secondary">No participants found.</Typography>
                         </TableCell>
                       </TableRow>
                     )}

@@ -11,12 +11,10 @@ import {
   IonIcon,
 } from "@ionic/react";
 import { supabase } from "../utils/supabaseClient";
-import { useHistory } from "react-router-dom";
 import { eye, eyeOff } from "ionicons/icons";
 import './css/ValidatorsLogin.css';
 
 const ValidatorsAuth: React.FC = () => {
-  const history = useHistory();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -27,7 +25,7 @@ const ValidatorsAuth: React.FC = () => {
 
   const handleSubmit = async () => {
     if (isRegister) {
-      // Step 1: Register in Supabase Auth
+      // Register new validator
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -39,7 +37,6 @@ const ValidatorsAuth: React.FC = () => {
         return;
       }
 
-      // Step 2: Insert into validators table
       if (data.user) {
         const { error: insertError } = await supabase.from("validators").upsert([
           {
@@ -51,8 +48,7 @@ const ValidatorsAuth: React.FC = () => {
 
         if (insertError) {
           setToastMessage(
-            "Auth created but failed to insert validator: " +
-              insertError.message
+            "Auth created but failed to insert validator: " + insertError.message
           );
         } else {
           setToastMessage("Registration successful! Please log in.");
@@ -61,7 +57,7 @@ const ValidatorsAuth: React.FC = () => {
         setShowToast(true);
       }
     } else {
-      // Step 1: Login with Auth
+      // Login validator
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -73,7 +69,6 @@ const ValidatorsAuth: React.FC = () => {
         return;
       }
 
-      // Step 2: Verify user exists in validators table
       const user = data.user;
       if (user) {
         const { data: validator, error: validatorError } = await supabase
@@ -83,15 +78,15 @@ const ValidatorsAuth: React.FC = () => {
           .single();
 
         if (validatorError || !validator) {
-          await supabase.auth.signOut(); // ❌ force logout
+          await supabase.auth.signOut();
           setToastMessage("Access denied: not a registered validator.");
           setShowToast(true);
           return;
         }
       }
 
-      // ✅ Validator confirmed
-      history.push("/Greenpoints/validators");
+      // Redirect to EventDashboard using href
+      window.location.href = "/GreenPoints/eventdashboard";
     }
   };
 
@@ -129,28 +124,19 @@ const ValidatorsAuth: React.FC = () => {
               value={password}
               onIonChange={(e) => setPassword(e.detail.value!)}
             />
-           <IonIcon
-  slot="end"
-  icon={showPassword ? eyeOff : eye}
-  className="password-toggle"
-  onClick={() => setShowPassword(!showPassword)}
-/>
-
+            <IonIcon
+              slot="end"
+              icon={showPassword ? eyeOff : eye}
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+            />
           </IonItem>
 
           <IonButton expand="block" onClick={handleSubmit} className="auth-btn">
             {isRegister ? "Register" : "Login"}
           </IonButton>
 
-          <IonButton
-            expand="block"
-            fill="clear"
-            onClick={() => setIsRegister(!isRegister)}
-          >
-            {isRegister
-              ? "Already have an account? Login"
-              : "Don’t have an account? Register"}
-          </IonButton>
+       
         </div>
 
         <IonToast
