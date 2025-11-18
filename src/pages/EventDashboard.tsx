@@ -213,7 +213,8 @@ const Dashboard = () => {
             { text: "Feedback", href: "/GreenPoints/feedbackadmin" },
             { text: "Statistics", href: "/GreenPoints/statistics" },
             { text: "News", href: "/GreenPoints/news" },
-            { text: "Settings", href: "/settings" },
+              { text: "Quick Monitor", href: "/GreenPoints/quickmonitor" },
+            
           ].map((item) => (
             <ListItem disablePadding key={item.text}>
               <ListItemButton component="a" href={item.href}><ListItemText primary={item.text} /></ListItemButton>
