@@ -36,6 +36,8 @@ interface Submission {
   visits?: number; // total visits from tree_monitoring
 }
 
+const MAX_VISITS = 1; // updated max visits
+
 const MySubmissions: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +157,7 @@ const MySubmissions: React.FC = () => {
 
   const incrementVisits = async (submission: Submission) => {
     try {
-      if ((submission.visits || 0) >= 5) return;
+      if ((submission.visits || 0) >= MAX_VISITS) return;
 
       const { error } = await supabase.from("tree_monitoring").insert([
         {
@@ -231,10 +233,6 @@ const MySubmissions: React.FC = () => {
 
       incrementVisits(submission);
     }
-  };
-
-  const handleRadar = (submission: Submission) => {
-    history.push(`/radar/${submission.submission_id}`);
   };
 
   const handleTakePicture = (submission: Submission) => {
@@ -327,21 +325,18 @@ const MySubmissions: React.FC = () => {
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                     <IonButton expand="block" color="success">
-                      👣 Visits: {sub.visits || 0}/5
+                      👣 Visits: {sub.visits || 0}/{MAX_VISITS}
                     </IonButton>
                     <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>
                       📍 Location
                     </IonButton>
-                    <IonButton expand="block" color="warning" onClick={() => handleRadar(sub)}>
-                      🧭 Radar
-                    </IonButton>
                     <IonButton
                       expand="block"
                       color="primary"
-                      disabled={(sub.visits || 0) >= 5}
+                      disabled={(sub.visits || 0) >= MAX_VISITS}
                       onClick={() => handleTakePicture(sub)}
                     >
-                      📸 Take Picture {(sub.visits || 0) >= 5 ? "(Max visits reached)" : ""}
+                      📸 Take Picture {(sub.visits || 0) >= MAX_VISITS ? "(Max visits reached)" : ""}
                     </IonButton>
                   </div>
                 </div>

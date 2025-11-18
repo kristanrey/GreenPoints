@@ -22,13 +22,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 // --- Interfaces ---
@@ -42,17 +40,6 @@ interface Submission {
 interface Monitoring {
   monitored_at: string;
   condition: string;
-}
-
-interface LogEntry {
-  email: string;
-  action: string;
-  login_time: string;
-}
-
-interface EventData {
-  created_at: string;
-  title: string;
 }
 
 // --- CSV Export Utility ---
@@ -74,14 +61,11 @@ const downloadCSV = (data: any[], filename: string) => {
 const StatisticsPage: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [monitoring, setMonitoring] = useState<Monitoring[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
   const [selectedBarangay, setSelectedBarangay] = useState<string>("All");
   const [selectedCondition, setSelectedCondition] = useState<string>("All");
-  const [logFilter, setLogFilter] = useState<string>("daily");
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -103,18 +87,6 @@ const StatisticsPage: React.FC = () => {
         .select("monitored_at, condition");
       if (monError) throw monError;
       setMonitoring(monData || []);
-
-      const { data: logData, error: logError } = await supabase
-        .from("logs")
-        .select("email, action, login_time");
-      if (logError) throw logError;
-      setLogs(logData || []);
-
-      const { data: eventData, error: eventError } = await supabase
-        .from("events")
-        .select("created_at, title");
-      if (eventError) throw eventError;
-      setEvents(eventData || []);
     } catch (err: any) {
       console.error("Error fetching stats:", err.message);
     }
@@ -142,30 +114,6 @@ const StatisticsPage: React.FC = () => {
     count,
   }));
 
-  const histBins: { [key: string]: number } = {};
-  filteredSubmissions.forEach((s) => {
-    const rangeStart = Math.floor(s.greenpoints / 10) * 10;
-    const label = `${rangeStart}-${rangeStart + 9}`;
-    histBins[label] = (histBins[label] || 0) + 1;
-  });
-  const histData = Object.entries(histBins).map(([range, count]) => ({
-    range,
-    count,
-  }));
-
-  const monthlySubmissions = filteredSubmissions.reduce((acc: any, s) => {
-    const month = new Date(s.created_at).toLocaleString("default", {
-      month: "short",
-      year: "numeric",
-    });
-    acc[month] = (acc[month] || 0) + 1;
-    return acc;
-  }, {});
-  const lineData = Object.entries(monthlySubmissions).map(([month, count]) => ({
-    month,
-    count,
-  }));
-
   const conditionCount = filteredMonitoring.reduce((acc: any, m) => {
     acc[m.condition] = (acc[m.condition] || 0) + 1;
     return acc;
@@ -179,45 +127,6 @@ const StatisticsPage: React.FC = () => {
     dying: "#FF8042",
     remove: "#FF0000",
   };
-
-  const logCounts: { [key: string]: number } = {};
-  logs.forEach((log) => {
-    if (log.action === "login") {
-      const date = new Date(log.login_time);
-      let key = "";
-      if (logFilter === "daily") {
-        key = date.toLocaleDateString("default", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-      } else {
-        const onejan = new Date(date.getFullYear(), 0, 1);
-        const week = Math.ceil(
-          ((date.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7
-        );
-        key = `Week ${week}, ${date.getFullYear()}`;
-      }
-      logCounts[key] = (logCounts[key] || 0) + 1;
-    }
-  });
-  const logData = Object.entries(logCounts).map(([period, count]) => ({
-    period,
-    count,
-  }));
-
-  const eventCounts: { [key: string]: number } = {};
-  events.forEach((e) => {
-    const month = new Date(e.created_at).toLocaleString("default", {
-      month: "short",
-      year: "numeric",
-    });
-    eventCounts[month] = (eventCounts[month] || 0) + 1;
-  });
-  const eventData = Object.entries(eventCounts).map(([month, count]) => ({
-    month,
-    count,
-  }));
 
   const barangayList = Array.from(new Set(submissions.map((s) => s.barangay)));
   const conditionList = Array.from(new Set(monitoring.map((m) => m.condition)));
@@ -302,17 +211,6 @@ const StatisticsPage: React.FC = () => {
                     ))}
                   </IonSelect>
                 </IonItem>
-
-                <IonItem style={{ flex: 1, minWidth: "200px" }}>
-                  <IonLabel>Login Filter</IonLabel>
-                  <IonSelect
-                    value={logFilter}
-                    onIonChange={(e) => setLogFilter(e.detail.value)}
-                  >
-                    <IonSelectOption value="daily">Daily</IonSelectOption>
-                    <IonSelectOption value="weekly">Weekly</IonSelectOption>
-                  </IonSelect>
-                </IonItem>
               </div>
 
               {/* Action Buttons */}
@@ -348,6 +246,7 @@ const StatisticsPage: React.FC = () => {
                 padding: "1rem",
               }}
             >
+              {/* Submissions per Barangay */}
               <ChartCard
                 title="Submissions per Barangay"
                 csvData={filteredSubmissions}
@@ -364,38 +263,7 @@ const StatisticsPage: React.FC = () => {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard
-                title="GreenPoints Distribution"
-                csvData={filteredSubmissions}
-                csvFilename="greenpoints_distribution.csv"
-              >
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={histData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="range" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#82ca9d" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              <ChartCard
-                title="Submissions Over Time"
-                csvData={filteredSubmissions}
-                csvFilename="submissions_over_time.csv"
-              >
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={lineData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#d81b60" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
+              {/* Tree Conditions */}
               <ChartCard
                 title="Tree Conditions"
                 csvData={filteredMonitoring}
@@ -414,49 +282,13 @@ const StatisticsPage: React.FC = () => {
                       {pieData.map((entry, i) => (
                         <Cell
                           key={i}
-                          fill={
-                            conditionColors[entry.name.toLowerCase()] ||
-                            "#A569BD"
-                          }
+                          fill={conditionColors[entry.name.toLowerCase()] || "#A569BD"}
                         />
                       ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
                   </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-              
-
-              <ChartCard
-                title={`User Logins (${logFilter})`}
-                csvData={logs}
-                csvFilename="user_logins.csv"
-              >
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={logData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#FF5733" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              <ChartCard
-                title="Events Created Over Time"
-                csvData={events}
-                csvFilename="events_over_time.csv"
-              >
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={eventData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#007bff" />
-                  </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
@@ -467,7 +299,7 @@ const StatisticsPage: React.FC = () => {
   );
 };
 
-// --- ChartCard Component with professional CSV button placement ---
+// --- ChartCard Component ---
 interface ChartCardProps {
   title: string;
   children: React.ReactNode;
