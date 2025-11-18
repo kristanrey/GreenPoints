@@ -426,6 +426,7 @@ const StatisticsPage: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </ChartCard>
+              
 
               <ChartCard
                 title={`User Logins (${logFilter})`}
