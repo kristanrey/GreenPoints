@@ -58,8 +58,10 @@ import Approval from './pages/Approval';
 import AdminValidateEvent from './pages/AdminValidateEvent';
 import EventDashboard from './pages/EventDashboard';
 import DataCharts from './pages/DataCharts';
-import DataTables from './pages/DataTables';
 import UserLogs from './pages/UserLogs';
+import QuickMonitor from './pages/QuickMonitor';
+
+
 
 
 
@@ -125,6 +127,9 @@ const App: React.FC = () => (
                          <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
                          <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
                          <Route path="/GreenPoints/userlogs" component={UserLogs} exact />
+                              <Route path="/GreenPoints/quickmonitor" component={QuickMonitor} exact />
+                        
+                       
                       
 
 
