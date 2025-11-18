@@ -108,6 +108,7 @@ const MySubmissions: React.FC = () => {
 
       setMunicipalities(Array.from(new Set(locationData?.map((l: any) => l.municipality).filter(Boolean))));
       setAllBarangays(locationData || []);
+      setBarangays(Array.from(new Set(locationData?.map((l: any) => l.barangay).filter(Boolean))));
       setTreeNames(Array.from(new Set(treeData?.map((t: any) => t.tree_name).filter(Boolean))));
     } catch (err: any) {
       console.error("Error fetching filter options:", err);
@@ -154,6 +155,7 @@ const MySubmissions: React.FC = () => {
 
           return {
             ...sub,
+            submission_id: sub.submission_id ?? sub.id, // fallback if DB uses "id"
             tree_name: exif?.tree_name || sub.tree_name || "Unknown Tree",
             barangay: exif?.barangay || sub.barangay || "Unknown Barangay",
             municipality: exif?.municipality || sub.municipality || "Unknown Municipality",
@@ -174,12 +176,12 @@ const MySubmissions: React.FC = () => {
   };
 
   // Filtered submissions
-  const filteredSubmissions = submissions.filter(
-    (s) =>
-      (!filterMunicipality || s.municipality === filterMunicipality) &&
-      (!filterBarangay || s.barangay === filterBarangay) &&
-      (!filterTreeName || s.tree_name === filterTreeName)
-  );
+  const filteredSubmissions = submissions.filter((s) => {
+    const matchMunicipality = filterMunicipality ? s.municipality === filterMunicipality : true;
+    const matchBarangay = filterBarangay ? s.barangay === filterBarangay : true;
+    const matchTreeName = filterTreeName ? s.tree_name === filterTreeName : true;
+    return matchMunicipality && matchBarangay && matchTreeName;
+  });
 
   // DMS conversion
   const toDMS = (deg: number, type: "lat" | "lon") => {
@@ -307,11 +309,23 @@ const MySubmissions: React.FC = () => {
             </IonSelect>
           </IonItem>
 
-          <IonButton onClick={() => {setFilterMunicipality(""); setFilterBarangay(""); setFilterTreeName("");}}>Reset</IonButton>
+          <IonButton
+            onClick={() => {
+              setFilterMunicipality("");
+              setFilterBarangay("");
+              setFilterTreeName("");
+              setBarangays(Array.from(new Set(allBarangays.map(b => b.barangay))));
+            }}
+          >
+            Reset
+          </IonButton>
         </div>
 
-        {loading ? <IonSpinner name="crescent" /> :
-          filteredSubmissions.length === 0 ? <p>No approved submissions match the filter 🌱</p> :
+        {loading ? (
+          <IonSpinner name="crescent" />
+        ) : filteredSubmissions.length === 0 ? (
+          <p>No approved submissions match the filter 🌱</p>
+        ) : (
           filteredSubmissions.map(sub => (
             <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
               <IonCardHeader>
@@ -329,11 +343,18 @@ const MySubmissions: React.FC = () => {
                 </table>
                 <IonButton expand="block" color="success">👣 Visits: {sub.visits || 0}/{MAX_VISITS}</IonButton>
                 <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>📍 Location</IonButton>
-                <IonButton expand="block" color="primary" disabled={(sub.visits || 0) >= MAX_VISITS} onClick={() => handleTakePicture(sub)}>📸 Take Picture</IonButton>
+                <IonButton
+                  expand="block"
+                  color="primary"
+                  disabled={(sub.visits || 0) >= MAX_VISITS}
+                  onClick={() => handleTakePicture(sub)}
+                >
+                  📸 Take Picture
+                </IonButton>
               </IonCardContent>
             </IonCard>
           ))
-        }
+        )}
 
         <IonToast isOpen={showToast} message={toastMsg} duration={2000} onDidDismiss={() => setShowToast(false)} />
       </IonContent>
