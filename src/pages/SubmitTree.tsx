@@ -250,49 +250,42 @@ const SubmitNewTree: React.FC = () => {
               </IonSelect>
             </IonItem>
 
-            <IonItem>
-              <IonLabel position="floating">Municipality</IonLabel>
-              <IonSelect
-                value={selectedMunicipality}
-                placeholder="Select municipality"
-                onIonChange={(e) => {
-                  setSelectedMunicipality(e.detail.value);
-                  setSelectedBarangay(null);
-                }}
-              >
-                {[...new Set(locationOptions.map((loc) => loc.municipality))].map((mun) => (
-                  <IonSelectOption key={mun} value={mun}>
-                    {mun}
-                  </IonSelectOption>
-                ))}
-              </IonSelect>
-            </IonItem>
+           <IonItem>
+  <IonLabel position="floating">Municipality</IonLabel>
+  <IonSelect
+    value={selectedMunicipality}
+    placeholder="Select municipality"
+    onIonChange={(e) => {
+      setSelectedMunicipality(e.detail.value);
+      setSelectedBarangay(null); // reset barangay when municipality changes
+    }}
+  >
+    {[...new Set(locationOptions.map((loc) => loc.municipality))].map((mun) => (
+      <IonSelectOption key={mun} value={mun}>
+        {mun}
+      </IonSelectOption>
+    ))}
+  </IonSelect>
+</IonItem>
 
-            <IonItem>
-              <IonLabel position="floating">Barangay</IonLabel>
-              <IonSelect
-                value={selectedBarangay}
-                placeholder="Select barangay"
-                onIonChange={(e) => setSelectedBarangay(e.detail.value)}
-                disabled={!selectedMunicipality}
-              >
-                {/* ✅ Fixed barangays */}
-                {fixedBarangays.map((bgy) => (
-                  <IonSelectOption key={bgy} value={bgy}>
-                    {bgy}
-                  </IonSelectOption>
-                ))}
+<IonItem>
+  <IonLabel position="floating">Barangay</IonLabel>
+  <IonSelect
+    value={selectedBarangay}
+    placeholder="Select barangay"
+    onIonChange={(e) => setSelectedBarangay(e.detail.value)}
+    disabled={!selectedMunicipality} // disabled until municipality is selected
+  >
+    {locationOptions
+      .filter((loc) => loc.municipality === selectedMunicipality)
+      .map((loc) => (
+        <IonSelectOption key={loc.location_id} value={loc.barangay}>
+          {loc.barangay}
+        </IonSelectOption>
+      ))}
+  </IonSelect>
+</IonItem>
 
-                {/* ✅ DB barangays */}
-                {locationOptions
-                  .filter((loc) => loc.municipality === selectedMunicipality)
-                  .map((loc) => (
-                    <IonSelectOption key={loc.location_id} value={loc.barangay}>
-                      {loc.barangay}
-                    </IonSelectOption>
-                  ))}
-              </IonSelect>
-            </IonItem>
 
             {!photoDataUrl && (
               <div className="ion-margin-top">
