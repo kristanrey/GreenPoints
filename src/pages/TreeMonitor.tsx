@@ -15,6 +15,10 @@ import {
   IonCardTitle,
   IonCardContent,
   IonButtons,
+  IonItem,
+  IonLabel,
+  IonSelect,
+  IonSelectOption,
 } from "@ionic/react";
 import { useHistory, useLocation } from "react-router";
 import { supabase } from "../utils/supabaseClient";
@@ -33,10 +37,10 @@ interface Submission {
   longitude: number;
   status: string;
   exif_metadata?: any;
-  visits?: number; // total visits from tree_monitoring
+  visits?: number;
 }
 
-const MAX_VISITS = 1; // updated max visits
+const MAX_VISITS = 1;
 
 const MySubmissions: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -44,6 +48,18 @@ const MySubmissions: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [userName, setUserName] = useState("");
+
+  // Filter states
+  const [filterMunicipality, setFilterMunicipality] = useState("");
+  const [filterBarangay, setFilterBarangay] = useState("");
+  const [filterTreeName, setFilterTreeName] = useState("");
+
+  // Dropdown options
+  const [municipalities, setMunicipalities] = useState<string[]>([]);
+  const [allBarangays, setAllBarangays] = useState<{ municipality: string; barangay: string }[]>([]);
+  const [barangays, setBarangays] = useState<string[]>([]);
+  const [treeNames, setTreeNames] = useState<string[]>([]);
+
   const history = useHistory();
   const location = useLocation<{ fromTakePicture?: boolean }>();
 
@@ -64,13 +80,11 @@ const MySubmissions: React.FC = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        setUserName(
-          profile?.full_name || user.user_metadata?.full_name || user.email || "User"
-        );
+        setUserName(profile?.full_name || user.user_metadata?.full_name || user.email || "User");
 
+        await fetchFilterOptions();
         fetchApprovedSubmissions();
       } catch (err: any) {
-        setUserName("User");
         setToastMsg(`Error: ${err.message}`);
         setShowToast(true);
         history.push("/login");
@@ -86,20 +100,50 @@ const MySubmissions: React.FC = () => {
     }
   }, [location.state]);
 
+  // Fetch filter options
+  const fetchFilterOptions = async () => {
+    try {
+      const { data: locationData } = await supabase.from("locations").select("municipality, barangay");
+      const { data: treeData } = await supabase.from("trees").select("tree_name");
+
+      setMunicipalities(Array.from(new Set(locationData?.map((l: any) => l.municipality).filter(Boolean))));
+      setAllBarangays(locationData || []);
+      setTreeNames(Array.from(new Set(treeData?.map((t: any) => t.tree_name).filter(Boolean))));
+    } catch (err: any) {
+      console.error("Error fetching filter options:", err);
+    }
+  };
+
+  // Update barangays based on selected municipality
+  useEffect(() => {
+    if (!filterMunicipality) {
+      setBarangays(Array.from(new Set(allBarangays.map(b => b.barangay))));
+      setFilterBarangay(""); // Reset barangay filter
+    } else {
+      setBarangays(
+        Array.from(
+          new Set(allBarangays.filter(b => b.municipality === filterMunicipality).map(b => b.barangay))
+        )
+      );
+      setFilterBarangay(""); // Reset barangay filter when municipality changes
+    }
+  }, [filterMunicipality, allBarangays]);
+
   const fetchApprovedSubmissions = async () => {
     setLoading(true);
     try {
-      const { data: submissionsData, error: submissionsError } = await supabase
+      const { data: submissionsData, error } = await supabase
         .from("tree_submissions")
         .select("*")
         .ilike("status", "approved")
         .order("created_at", { ascending: false });
 
-      if (submissionsError) throw submissionsError;
+      if (error) throw error;
 
       const parsedData = await Promise.all(
         (submissionsData || []).map(async (sub: any) => {
           const exif = sub.exif_metadata ? JSON.parse(sub.exif_metadata) : null;
+
           const finalLat = exif?.latitude ?? sub.latitude;
           const finalLng = exif?.longitude ?? sub.longitude;
 
@@ -129,6 +173,15 @@ const MySubmissions: React.FC = () => {
     setLoading(false);
   };
 
+  // Filtered submissions
+  const filteredSubmissions = submissions.filter(
+    (s) =>
+      (!filterMunicipality || s.municipality === filterMunicipality) &&
+      (!filterBarangay || s.barangay === filterBarangay) &&
+      (!filterTreeName || s.tree_name === filterTreeName)
+  );
+
+  // DMS conversion
   const toDMS = (deg: number, type: "lat" | "lon") => {
     if (!deg) return "N/A";
     const d = Math.floor(Math.abs(deg));
@@ -140,25 +193,20 @@ const MySubmissions: React.FC = () => {
 
   const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371000;
-    const toRad = (value: number) => (value * Math.PI) / 180;
-
+    const toRad = (v: number) => (v * Math.PI) / 180;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
     return R * c;
   };
 
   const incrementVisits = async (submission: Submission) => {
-    try {
-      if ((submission.visits || 0) >= MAX_VISITS) return;
+    if ((submission.visits || 0) >= MAX_VISITS) return;
 
+    try {
       const { error } = await supabase.from("tree_monitoring").insert([
         {
           submission_id: submission.submission_id,
@@ -172,7 +220,6 @@ const MySubmissions: React.FC = () => {
           visits: (submission.visits || 0) + 1,
         },
       ]);
-
       if (error) throw error;
 
       setSubmissions((prev) =>
@@ -183,60 +230,34 @@ const MySubmissions: React.FC = () => {
         )
       );
     } catch (err) {
-      console.error("Error incrementing visits:", err);
+      console.error(err);
     }
   };
 
-  const handleFind = (submission: Submission) => {
-    const { latitude: lat, longitude: lng } = submission;
+  const handleFind = (sub: Submission) => {
+    const { latitude, longitude } = sub;
+    if (!latitude || !longitude) return;
 
-    if (!lat || !lng) {
-      setToastMsg("⚠️ Tree location not available");
-      setShowToast(true);
-      return;
-    }
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
-
-          const distance = getDistanceMeters(userLat, userLng, lat, lng);
-
-          if (distance <= 1) {
-            setToastMsg("🎉 You are at the tree location! 🌳");
-            setShowToast(true);
-          }
-
-          const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
-          window.open(mapsUrl, "_blank");
-
-          incrementVisits(submission);
-        },
-        () => {
-          setToastMsg("⚠️ Could not detect your location");
-          setShowToast(true);
-
-          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-          window.open(mapsUrl, "_blank");
-
-          incrementVisits(submission);
-        }
-      );
-    } else {
-      setToastMsg("⚠️ Geolocation not supported by this browser");
-      setShowToast(true);
-
-      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-      window.open(mapsUrl, "_blank");
-
-      incrementVisits(submission);
-    }
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => {
+        const distance = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, latitude, longitude);
+        if (distance <= 1) setToastMsg("🎉 You are at the tree location! 🌳");
+        setShowToast(true);
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${pos.coords.latitude},${pos.coords.longitude}&destination=${latitude},${longitude}`;
+        window.open(mapsUrl, "_blank");
+        incrementVisits(sub);
+      },
+      () => {
+        setToastMsg("⚠️ Could not detect location");
+        setShowToast(true);
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`, "_blank");
+        incrementVisits(sub);
+      }
+    );
   };
 
-  const handleTakePicture = (submission: Submission) => {
-    history.push(`/take-picture/${submission.submission_id}`);
+  const handleTakePicture = (sub: Submission) => {
+    history.push(`/take-picture/${sub.submission_id}`);
   };
 
   return (
@@ -251,106 +272,70 @@ const MySubmissions: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding">
-        {loading ? (
-          <IonSpinner name="crescent" />
-        ) : submissions.length === 0 ? (
-          <p>No approved tree submissions yet 🌱</p>
-        ) : (
-          submissions.map((sub) => (
+        {/* Filters */}
+        <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+          <IonItem>
+            <IonLabel>Municipality</IonLabel>
+            <IonSelect
+              value={filterMunicipality}
+              placeholder="Select Municipality"
+              onIonChange={e => setFilterMunicipality(e.detail.value)}
+            >
+              {municipalities.map(m => <IonSelectOption key={m} value={m}>{m}</IonSelectOption>)}
+            </IonSelect>
+          </IonItem>
+
+          <IonItem>
+            <IonLabel>Barangay</IonLabel>
+            <IonSelect
+              value={filterBarangay}
+              placeholder="Select Barangay"
+              onIonChange={e => setFilterBarangay(e.detail.value)}
+            >
+              {barangays.map(b => <IonSelectOption key={b} value={b}>{b}</IonSelectOption>)}
+            </IonSelect>
+          </IonItem>
+
+          <IonItem>
+            <IonLabel>Tree Name</IonLabel>
+            <IonSelect
+              value={filterTreeName}
+              placeholder="Select Tree"
+              onIonChange={e => setFilterTreeName(e.detail.value)}
+            >
+              {treeNames.map(t => <IonSelectOption key={t} value={t}>{t}</IonSelectOption>)}
+            </IonSelect>
+          </IonItem>
+
+          <IonButton onClick={() => {setFilterMunicipality(""); setFilterBarangay(""); setFilterTreeName("");}}>Reset</IonButton>
+        </div>
+
+        {loading ? <IonSpinner name="crescent" /> :
+          filteredSubmissions.length === 0 ? <p>No approved submissions match the filter 🌱</p> :
+          filteredSubmissions.map(sub => (
             <IonCard key={sub.submission_id} style={{ padding: "16px" }}>
               <IonCardHeader>
-                <IonCardTitle style={{ fontSize: "20px", fontWeight: "600" }}>
-                  Approved Tree
-                </IonCardTitle>
+                <IonCardTitle>Approved Tree</IonCardTitle>
               </IonCardHeader>
               <IonCardContent>
-                <div
-                  style={{
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    background: "#fff",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "12px",
-                  }}
-                >
-                  {sub.image_url ? (
-                    <IonImg
-                      src={sub.image_url}
-                      style={{
-                        width: "100%",
-                        maxWidth: "400px",
-                        height: "auto",
-                        borderRadius: "8px",
-                        objectFit: "contain",
-                        background: "#fafafa",
-                        padding: "8px",
-                      }}
-                    />
-                  ) : (
-                    <p>📷 Image not available</p>
-                  )}
-
-                  <p style={{ fontSize: "16px", fontWeight: "500", fontStyle: "italic" }}>
-                    {sub.tree_type || "Planted a new tree"}
-                  </p>
-
-                  <table style={{ width: "100%", fontSize: "14px", marginBottom: "12px" }}>
-                    <tbody>
-                      <tr>
-                        <td><b>Tree Name</b></td>
-                        <td>{sub.tree_name}</td>
-                      </tr>
-                      <tr>
-                        <td><b>Barangay</b></td>
-                        <td>{sub.barangay}</td>
-                      </tr>
-                      <tr>
-                        <td><b>Municipality</b></td>
-                        <td>{sub.municipality}</td>
-                      </tr>
-                      <tr>
-                        <td><b>Latitude (DMS)</b></td>
-                        <td>{toDMS(sub.latitude, "lat")}</td>
-                      </tr>
-                      <tr>
-                        <td><b>Longitude (DMS)</b></td>
-                        <td>{toDMS(sub.longitude, "lon")}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
-                    <IonButton expand="block" color="success">
-                      👣 Visits: {sub.visits || 0}/{MAX_VISITS}
-                    </IonButton>
-                    <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>
-                      📍 Location
-                    </IonButton>
-                    <IonButton
-                      expand="block"
-                      color="primary"
-                      disabled={(sub.visits || 0) >= MAX_VISITS}
-                      onClick={() => handleTakePicture(sub)}
-                    >
-                      📸 Take Picture {(sub.visits || 0) >= MAX_VISITS ? "(Max visits reached)" : ""}
-                    </IonButton>
-                  </div>
-                </div>
+                {sub.image_url ? <IonImg src={sub.image_url} style={{ maxWidth: "400px", borderRadius: "8px" }} /> : <p>📷 Image not available</p>}
+                <p>{sub.tree_type}</p>
+                <table>
+                  <tbody>
+                    <tr><td><b>Tree Name</b></td><td>{sub.tree_name}</td></tr>
+                    <tr><td><b>Barangay</b></td><td>{sub.barangay}</td></tr>
+                    <tr><td><b>Municipality</b></td><td>{sub.municipality}</td></tr>
+                  </tbody>
+                </table>
+                <IonButton expand="block" color="success">👣 Visits: {sub.visits || 0}/{MAX_VISITS}</IonButton>
+                <IonButton expand="block" color="tertiary" onClick={() => handleFind(sub)}>📍 Location</IonButton>
+                <IonButton expand="block" color="primary" disabled={(sub.visits || 0) >= MAX_VISITS} onClick={() => handleTakePicture(sub)}>📸 Take Picture</IonButton>
               </IonCardContent>
             </IonCard>
           ))
-        )}
+        }
 
-        <IonToast
-          isOpen={showToast}
-          message={toastMsg}
-          duration={2000}
-          onDidDismiss={() => setShowToast(false)}
-        />
+        <IonToast isOpen={showToast} message={toastMsg} duration={2000} onDidDismiss={() => setShowToast(false)} />
       </IonContent>
     </IonPage>
   );
