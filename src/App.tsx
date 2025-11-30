@@ -60,6 +60,7 @@ import EventDashboard from './pages/EventDashboard';
 import DataCharts from './pages/DataCharts';
 import UserLogs from './pages/UserLogs';
 import QuickMonitor from './pages/QuickMonitor';
+import TreeGallery from './pages/TreeGallery';
 
 
 
@@ -122,12 +123,13 @@ const App: React.FC = () => (
                        <Route path="/update-reward/:id" component={UpdateReward} exact />
                        <Route path="/GreenPoints/statistics" component={Statistics} exact />
                         <Route path="/GreenPoints/appointment" component={Appointment} exact />
-                       <Route path="/GreenPoints/approval" component={Approval} exact />
-                        <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
+                         <Route path="/GreenPoints/approval" component={Approval} exact />
+                         <Route path="/GreenPoints/adminvalidateevent" component={AdminValidateEvent} exact />
                          <Route path="/GreenPoints/eventdashboard" component={EventDashboard} exact />
                          <Route path="/GreenPoints/datacharts" component={DataCharts} exact />
                          <Route path="/GreenPoints/userlogs" component={UserLogs} exact />
-                              <Route path="/GreenPoints/quickmonitor" component={QuickMonitor} exact />
+                         <Route path="/GreenPoints/quickmonitor" component={QuickMonitor} exact />
+                          <Route path="/GreenPoints/treegallery" component={TreeGallery} exact />
                         
                        
                       
