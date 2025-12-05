@@ -36,6 +36,13 @@ import { supabase } from "../utils/supabaseClient";
 import TreeAnimation from "../components/TreeAnimation";
 import "./css/UserDashboard.css";
 
+// Swiper imports
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/pagination";
+import "swiper/css/navigation";
+import { Pagination, Navigation } from "swiper/modules";
+
 const UserDashboard: React.FC = () => {
   const [userName, setUserName] = useState("");
   const [treesPlanted, setTreesPlanted] = useState(0);
@@ -50,9 +57,11 @@ const UserDashboard: React.FC = () => {
   const [eventList, setEventList] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+
   const router = useIonRouter();
 
-  // Fetch user data + news + events
+  // Fetch user data + news + events + gallery
   const fetchUserData = async () => {
     setFeedback("");
     setShowToast(false);
@@ -150,6 +159,20 @@ const UserDashboard: React.FC = () => {
       .limit(5);
 
     if (!eventsError && events) setEventList(events);
+
+    // --- Fetch Gallery Images ---
+    const { data: galleryData, error: galleryError } = await supabase
+      .from("tree_submissions")
+      .select("image_path")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (!galleryError && galleryData) {
+      const imageUrls = galleryData.map((row) =>
+        supabase.storage.from("greenpoints").getPublicUrl(row.image_path).data.publicUrl
+      );
+      setGalleryImages(imageUrls);
+    }
 
     setLoading(false);
   };
@@ -288,7 +311,6 @@ const UserDashboard: React.FC = () => {
                 <IonText className="stat-value">{treesPlanted}</IonText>
                 <IonText className="stat-label">Trees Planted</IonText>
               </div>
-              
             </div>
             <div className="stat-divider"></div>
             <div className="stat-item">
@@ -340,6 +362,29 @@ const UserDashboard: React.FC = () => {
             Monitor Tree
           </IonButton>
         </div>
+
+        {/* Swiper Gallery */}
+        {galleryImages.length > 0 && (
+          <>
+            <h2 className="section-title">
+              <IonIcon icon={camera} /> Tree Gallery
+            </h2>
+            <Swiper
+              spaceBetween={10}
+              slidesPerView={2.5}
+              navigation
+              pagination={{ clickable: true }}
+              modules={[Pagination, Navigation]}
+              style={{ padding: "10px 0" }}
+            >
+              {galleryImages.map((img, index) => (
+                <SwiperSlide key={index}>
+                  <IonImg src={img} className="gallery-image" />
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </>
+        )}
 
         {/* News Section */}
         <h2 className="section-title">
